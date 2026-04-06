@@ -41,12 +41,22 @@ def fit_kpca(K: np.ndarray, *, n_components: int = 2) -> KPCAResult:
     -------
     KPCAResult
     """
+    # 1. Fit the standard kPCA
     kpca = KernelPCA(n_components=n_components, kernel="precomputed")
     projections = kpca.fit_transform(K)
-
     eigenvalues = kpca.eigenvalues_
-    total = eigenvalues.sum()
-    explained = eigenvalues / total if total > 0 else np.zeros_like(eigenvalues)
+
+    # 2. Calculate the true total variance
+    N = K.shape[0]
+    # The trace of the centered kernel matrix equals the sum of ALL its eigenvalues.
+    # Mathematically: Tr(K_centered) = Tr(K) - (1/N) * Sum(K)
+    true_total_variance = np.trace(K) - (1.0 / N) * np.sum(K)
+
+    # 3. Calculate the accurate explained variance
+    if true_total_variance > 0:
+        explained = eigenvalues / true_total_variance
+    else:
+        explained = np.zeros_like(eigenvalues)
 
     return KPCAResult(
         projections=projections,

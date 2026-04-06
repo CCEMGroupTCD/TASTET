@@ -2,11 +2,76 @@
 
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from typing import Literal, Sequence, Any
 
 import numpy as np
 from dscribe.kernels import AverageKernel, REMatchKernel
 from tqdm import tqdm
+
+
+def median_heuristic_gamma(
+    soap_list: Sequence[np.ndarray],
+    max_envs: int = 5000,
+    rng_seed: int = 42,
+) -> float:
+    """Compute the RBF gamma via the median heuristic over local environments.
+
+    Pools all per-atom SOAP vectors, (sub)samples if the total exceeds
+    *max_envs*, computes pairwise squared Euclidean distances, and returns
+
+        gamma = 1 / (2 * median_distance²)
+
+    which is the standard median heuristic for
+    ``K(x, y) = exp(-gamma ||x - y||²)``.
+
+    :param soap_list: One feature matrix per structure.
+    :param max_envs: Cap on pooled environments (random subsample).
+    :param rng_seed: Seed for reproducible subsampling.
+    :returns: Scalar gamma value.
+    """
+    from sklearn.metrics import pairwise_distances
+
+    pooled = np.vstack(soap_list)
+
+    if len(pooled) > max_envs:
+        rng = np.random.default_rng(rng_seed)
+        idx = rng.choice(len(pooled), size=max_envs, replace=False)
+        pooled = pooled[idx]
+
+    D2 = pairwise_distances(pooled, metric="sqeuclidean")
+    med = np.median(D2[np.triu_indices_from(D2, k=1)])
+
+    if med == 0.0:
+        raise ValueError(
+            "Median squared distance is 0 — all environments are identical."
+        )
+
+    gamma = 1.0 / (2.0 * med)
+    return float(gamma)
+
+
+def resolve_kernel_params(
+    soap_list: Sequence[np.ndarray],
+    params: dict,
+    verbose: bool = True,
+) -> dict:
+    """Return a copy of *params* with ``gamma="median"`` resolved to a float.
+
+    :param soap_list: Per-structure SOAP feature matrices (needed only when
+        ``gamma="median"``).
+    :param params: Kernel parameter dict, e.g. ``cfg.KERNEL_PARAMS`` or a
+        single row from ``KERNEL_GRID``.
+    :param verbose: Print the resolved value.
+    :returns: A *new* dict with ``gamma`` replaced by its numeric value
+        when it was ``"median"``, or an unchanged copy otherwise.
+    """
+    params = dict(params)
+    if params.get("gamma") == "median":
+        gamma = median_heuristic_gamma(soap_list)
+        params["gamma"] = gamma
+        if verbose:
+            print(f"  Median-heuristic γ = {gamma:.6g}")
+    return params
 
 
 def compute_kernel(
@@ -14,39 +79,60 @@ def compute_kernel(
     *,
     method: Literal["average", "rematch"] = "rematch",
     metric: str = "linear",
-    gamma: float | None = None,
     alpha: float = 0.5,
     normalize: bool = True,
     verbose: bool = True,
+    **metric_kwargs: Any,
 ) -> np.ndarray:
-    """Build a global similarity kernel from per-structure SOAP features.
-
-    Parameters
-    ----------
-    soap_list : sequence of ndarray
-        One feature matrix per structure (from :func:`sads.soap.compute_soap`).
-    method : ``"average"`` or ``"rematch"``
-        Global kernel type.
-    metric : str
-        Pairwise local-environment metric (``"linear"``, ``"rbf"``, …).
-    gamma : float, optional
-        Metric width (passed to dscribe when not *None*).
-    alpha : float
-        REMatch regularisation (only used when *method* = ``"rematch"``).
-    normalize : bool
-        Row/column-normalise the kernel so that ``K[i,i] == 1``.
-    verbose : bool
-        Show a ``tqdm`` progress bar.
-
-    Returns
-    -------
-    ndarray, shape (N, N)
-        Symmetric positive-semidefinite kernel matrix.
     """
-    metric_kwargs: dict = {}
-    if gamma is not None:
-        metric_kwargs["gamma"] = gamma
+    Build a global similarity kernel from per-structure SOAP features.
 
+    :param soap_list:
+        One feature matrix per structure, typically produced by
+        :func:`sads.soap.compute_soap`.
+    :type soap_list: Sequence[numpy.ndarray]
+
+    :param method:
+        Global kernel type. Must be ``"average"`` or ``"rematch"``.
+    :type method: Literal["average", "rematch"]
+
+    :param metric:
+        Pairwise local-environment metric understood by DScribe / scikit-learn,
+        for example ``"linear"``, ``"rbf"``, or ``"polynomial"``.
+    :type metric: str
+
+    :param alpha:
+        REMatch regularisation parameter. Only used when
+        ``method == "rematch"``.
+    :type alpha: float
+
+    :param normalize:
+        Whether to normalise the kernel so that diagonal elements satisfy
+        ``K[i, i] == 1``.
+    :type normalize: bool
+
+    :param verbose:
+        Whether to display a progress bar over kernel rows.
+    :type verbose: bool
+
+    :param metric_kwargs:
+        Additional keyword arguments forwarded to the DScribe kernel
+        constructor for the selected local metric. Examples include
+        ``gamma`` for ``"rbf"``, and ``degree``, ``gamma``, ``coef0``
+        for ``"polynomial"``.
+    :type metric_kwargs: Any
+
+    :returns:
+        Symmetric positive-semidefinite kernel matrix of shape ``(N, N)``.
+    :rtype: numpy.ndarray
+
+    :raises ValueError:
+        If ``method`` is not one of ``"average"`` or ``"rematch"``.
+
+    .. note::
+        ``gamma="median"`` must be resolved *before* calling this function.
+        Use :func:`resolve_kernel_params` to do so.
+    """
     if method == "average":
         kern = AverageKernel(metric=metric, **metric_kwargs)
     elif method == "rematch":
@@ -72,3 +158,67 @@ def compute_kernel(
         K /= np.outer(diag_sqrt, diag_sqrt)
 
     return K
+
+
+def combine_kernels(
+    kernels: Sequence[np.ndarray],
+    mode: Literal["product", "sum"] = "product",
+    *,
+    tol: float = 1e-8,
+) -> np.ndarray:
+    """Combine pre-normalised kernel matrices into a single kernel.
+
+    Each input kernel is assumed to be normalised (diagonal ≈ 1).
+    The combined kernel preserves this property:
+
+    * ``"product"`` — element-wise (Hadamard) product.  Because every
+      input has unit diagonal, the product diagonal is also exactly 1.
+    * ``"sum"`` — element-wise mean ``(K₁ + K₂ + … + Kₙ) / n``, so
+      the diagonal remains 1.
+
+    A diagnostic check verifies that the output diagonal is within
+    *tol* of 1 and emits a warning otherwise.
+
+    :param kernels: Two or more normalised kernel matrices of the same
+        shape ``(N, N)``.
+    :param mode: ``"product"`` for the Hadamard product,
+        ``"sum"`` for the element-wise mean.
+    :param tol: Tolerance for the diagonal-unity check.
+    :returns: Combined kernel matrix, shape ``(N, N)``.
+    :raises ValueError: If fewer than one kernel is provided, shapes
+        are inconsistent, or *mode* is unrecognised.
+    """
+    import warnings
+
+    if len(kernels) < 1:
+        raise ValueError("Need at least one kernel matrix.")
+
+    shape = kernels[0].shape
+    for i, K in enumerate(kernels):
+        if K.shape != shape:
+            raise ValueError(
+                f"Shape mismatch: kernel 0 is {shape}, kernel {i} is {K.shape}."
+            )
+
+    if len(kernels) == 1:
+        return kernels[0].copy()
+
+    if mode == "product":
+        K_out = kernels[0].copy()
+        for K in kernels[1:]:
+            K_out *= K
+    elif mode == "sum":
+        K_out = sum(kernels) / len(kernels)
+    else:
+        raise ValueError(f"Unknown combine mode: {mode!r}")
+
+    diag = np.diag(K_out)
+    max_dev = float(np.max(np.abs(diag - 1.0)))
+    if max_dev > tol:
+        warnings.warn(
+            f"Combined kernel diagonal deviates from 1 by up to {max_dev:.2e} "
+            f"(tol={tol:.0e}).  Check that input kernels are normalised.",
+            stacklevel=2,
+        )
+
+    return K_out

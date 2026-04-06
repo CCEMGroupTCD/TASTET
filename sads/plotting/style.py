@@ -1,7 +1,7 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.ticker import AutoMinorLocator, FuncFormatter, FormatStrFormatter
+from matplotlib.ticker import AutoMinorLocator, FuncFormatter
 from matplotlib.markers import MarkerStyle
 
 palette = {
