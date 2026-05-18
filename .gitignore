@@ -1,0 +1,47 @@
+# Python junk
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS / Windows junk
+.DS_Store
+Thumbs.db
+
+# Testing / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Docs build output
+docs/_build/
+
+# Ignore everything inside use_cases by default
+examples/**
+
+# But keep use_cases folders visible
+!examples/
+!examples/*/
+
+# Keep only clean public example files inside each use case
+!examples/*/config.py
+!examples/*/run.py
+!examples/*/prepare.py
+!use_cases/*/*.sdf
+!use_cases/*/*.traj
