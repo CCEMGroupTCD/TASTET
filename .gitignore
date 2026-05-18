@@ -32,16 +32,24 @@ htmlcov/
 # Docs build output
 docs/_build/
 
-# Ignore everything inside use_cases by default
+# Ignore everything inside examples by default
 examples/**
 
-# But keep use_cases folders visible
+# But keep the examples folder itself
 !examples/
-!examples/*/
 
-# Keep only clean public example files inside each use case
-!examples/*/config.py
-!examples/*/run.py
-!examples/*/prepare.py
-!use_cases/*/*.sdf
-!use_cases/*/*.traj
+# Keep only selected public example folders
+!examples/nanoclusters/
+!examples/rh_complex/
+
+# Keep only clean public files inside those examples
+
+!examples/nanoclusters/config.py
+!examples/nanoclusters/run.py
+!examples/nanoclusters/prepare.py
+!examples/nanoclusters/*.traj
+
+!examples/rh_complex/config.py
+!examples/rh_complex/run.py
+!examples/rh_complex/prepare.py
+!examples/rh_complex/*.sdf
