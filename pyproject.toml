@@ -13,11 +13,13 @@ authors = [
 ]
 dependencies = [
     "numpy",
+    "pandas",
     "matplotlib",
     "ase",
     "dscribe",
     "scikit-learn",
     "tqdm",
+    "kmedoids",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +30,9 @@ dev = [
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
+]
+examples = [
+    "rdkit",
 ]
 
 [tool.setuptools.packages.find]
