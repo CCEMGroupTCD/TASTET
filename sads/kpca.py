@@ -12,14 +12,12 @@ from sklearn.decomposition import KernelPCA
 class KPCAResult:
     """Container for kPCA output.
 
-    Attributes
-    ----------
-    projections : ndarray, shape (N, n_components)
-        Low-dimensional coordinates.
-    eigenvalues : ndarray, shape (n_components,)
-        Eigenvalues of the centred kernel matrix.
-    explained_variance : ndarray, shape (n_components,)
-        Fraction of total variance per component.
+    :ivar projections: Low-dimensional coordinates.
+    :vartype projections: ndarray, shape (N, n_components)
+    :ivar eigenvalues: Eigenvalues of the centred kernel matrix.
+    :vartype eigenvalues: ndarray, shape (n_components,)
+    :ivar explained_variance: Fraction of total variance per component.
+    :vartype explained_variance: ndarray, shape (n_components,)
     """
 
     projections: np.ndarray
@@ -30,16 +28,13 @@ class KPCAResult:
 def fit_kpca(K: np.ndarray, *, n_components: int = 2) -> KPCAResult:
     """Run Kernel PCA on a precomputed kernel matrix.
 
-    Parameters
-    ----------
-    K : ndarray, shape (N, N)
-        Precomputed kernel matrix.
-    n_components : int
-        Number of principal components to keep.
-
-    Returns
-    -------
-    KPCAResult
+    :param K: Precomputed kernel matrix.
+    :type K: ndarray, shape (N, N)
+    :param n_components: Number of principal components to keep.
+    :type n_components: int
+    :return: kPCA output containing projections, eigenvalues, and explained
+        variance.
+    :rtype: KPCAResult
     """
     # 1. Fit the standard kPCA
     kpca = KernelPCA(n_components=n_components, kernel="precomputed")

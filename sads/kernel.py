@@ -162,31 +162,43 @@ def compute_kernel(
 
 def combine_kernels(
     kernels: Sequence[np.ndarray],
-    mode: Literal["product", "sum"] = "product",
+    mode: Literal["product", "sum", "weighted_sum"] = "product",
     *,
+    weights: Sequence[float] | None = None,
     tol: float = 1e-8,
 ) -> np.ndarray:
     """Combine pre-normalised kernel matrices into a single kernel.
 
     Each input kernel is assumed to be normalised (diagonal ≈ 1).
-    The combined kernel preserves this property:
+    The combined kernel preserves this property when *weights* sum
+    to 1 in the ``"weighted_sum"`` case:
 
-    * ``"product"`` — element-wise (Hadamard) product.  Because every
-      input has unit diagonal, the product diagonal is also exactly 1.
-    * ``"sum"`` — element-wise mean ``(K₁ + K₂ + … + Kₙ) / n``, so
-      the diagonal remains 1.
+    * ``"product"``      — element-wise (Hadamard) product. Because
+      every input has unit diagonal, the product diagonal is also
+      exactly 1.
+    * ``"sum"``          — element-wise mean
+      ``(K₁ + K₂ + … + Kₙ) / n``, so the diagonal remains 1.
+    * ``"weighted_sum"`` — linear combination ``Σᵢ wᵢ Kᵢ``. With
+      ``Σᵢ wᵢ = 1`` and unit-diagonal inputs the result has unit
+      diagonal too; otherwise the diagonal scales with the weight
+      sum and the diagnostic warning will fire.
 
     A diagnostic check verifies that the output diagonal is within
     *tol* of 1 and emits a warning otherwise.
 
     :param kernels: Two or more normalised kernel matrices of the same
         shape ``(N, N)``.
-    :param mode: ``"product"`` for the Hadamard product,
-        ``"sum"`` for the element-wise mean.
+    :param mode: ``"product"`` for the Hadamard product, ``"sum"`` for
+        the element-wise mean, or ``"weighted_sum"`` for a linear
+        combination with explicit per-channel weights.
+    :param weights: Per-channel weights, required iff
+        ``mode == "weighted_sum"``. Must be the same length as
+        *kernels*. Ignored for the other modes.
     :param tol: Tolerance for the diagonal-unity check.
     :returns: Combined kernel matrix, shape ``(N, N)``.
     :raises ValueError: If fewer than one kernel is provided, shapes
-        are inconsistent, or *mode* is unrecognised.
+        are inconsistent, *mode* is unrecognised, or weights are
+        missing/mis-sized for ``"weighted_sum"``.
     """
     import warnings
 
@@ -209,6 +221,17 @@ def combine_kernels(
             K_out *= K
     elif mode == "sum":
         K_out = sum(kernels) / len(kernels)
+    elif mode == "weighted_sum":
+        if weights is None:
+            raise ValueError("weighted_sum requires explicit weights.")
+        if len(weights) != len(kernels):
+            raise ValueError(
+                f"weighted_sum needs one weight per kernel; "
+                f"got {len(weights)} for {len(kernels)} kernels."
+            )
+        K_out = np.zeros_like(kernels[0])
+        for w, K in zip(weights, kernels):
+            K_out = K_out + w * K
     else:
         raise ValueError(f"Unknown combine mode: {mode!r}")
 

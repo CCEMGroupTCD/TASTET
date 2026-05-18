@@ -12,6 +12,7 @@ palette = {
     "blue":    "#57B4E9",
     "dark blue": "#0072B2",
     "magenta": "#CC79A7",
+    "pink": "#EE6677",
     "black":   "#000000",
 }
 
@@ -82,4 +83,5 @@ def apply_axis_style(
 def savefig(fig, path: Path, dpi: int = 450) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, dpi=dpi, transparent=False, bbox_inches="tight", pad_inches=0.0)
+    # fig.savefig(path, dpi=dpi, transparent=False, bbox_inches="tight", pad_inches=0.0)
+    fig.savefig(path, dpi=dpi, transparent=False, pad_inches=0.0)

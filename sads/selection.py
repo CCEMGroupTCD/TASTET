@@ -74,7 +74,7 @@ def select_structures(
     k: int = 10,
     method: Literal["kmedoids", "fps"] = "kmedoids",
     seed: int = 42,
-) -> tuple[pd.DataFrame, np.ndarray]:
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     """Filter (optionally) by energy, then pick *k* diverse structures.
 
     :param K: Kernel matrix, shape (N, N).  Row order matches *meta*.
@@ -86,9 +86,22 @@ def select_structures(
     :param k: Number of representatives.
     :param method: ``"kmedoids"`` or ``"fps"``.
     :param seed: Random state.
-    :returns: ``(selected, idx_pool)`` where *selected* is a DataFrame
-        of chosen rows with an ``array_index`` column, and *idx_pool*
-        contains indices of all structures that passed the filter.
+    :returns: ``(selected, idx_pool, selected_indices)``.
+
+        ``selected``
+            DataFrame of the chosen rows (every column from *meta*),
+            in selection order, with the index reset to 0..k-1. No
+            row-position column is added — callers that need the
+            kernel-row positions get them from *selected_indices*.
+
+        ``idx_pool``
+            Indices (into *meta*) of all structures that passed the
+            energy filter; the candidate pool the picker drew from.
+
+        ``selected_indices``
+            Indices (into *meta* / kernel rows) of the chosen
+            structures, in selection order. Aligned row-wise with
+            *selected*.
     """
     if energy_max is not None:
         if not energy_col:
@@ -114,9 +127,8 @@ def select_structures(
     local_idx = _METHODS[method](K_sub, k, seed)
     global_idx = idx_pool[local_idx]
 
-    selected = meta.iloc[global_idx].copy()
-    selected["array_index"] = global_idx
-    return selected, idx_pool
+    selected = meta.iloc[global_idx].copy().reset_index(drop=True)
+    return selected, idx_pool, global_idx
 
 
 # ── Plotting ──────────────────────────────────────────────────────────
@@ -134,23 +146,31 @@ def plot_selection(
 ) -> plt.Figure:
     """kPCA scatter showing the filtered pool with selections highlighted.
 
-    When *color_values* is provided, the pool is coloured (with the
-    colourbar anchored to the full dataset range) and selected points
-    are overlaid in magenta.  When *None*, the pool is grey and
-    selections are magenta — contrast from size alone.
+    Visually identical to :func:`sads.plotting.kpca.plot_kpca` for the
+    base scatter (same figsize, same marker size and alpha, same
+    palette colour), except that selected structures are overlaid in
+    :data:`palette["pink"]` at twice the marker size. Reading
+    ``selection.png`` next to ``kpca.png`` shows the same point cloud
+    with the picks lit up — no other visual difference.
+
+    When *color_values* is provided, the pool is coloured by the
+    project gradient (anchored to the full dataset range); the
+    overlaid selections stay pink so they remain visible against any
+    point colour.
 
     :param proj_df: Full projections DataFrame (all structures).
     :param idx_pool: Indices of structures that passed the filter.
     :param selected_indices: Indices of selected structures.
     :param explained_variance_pct: Explained variance per component (%).
-    :param color_values: Per-point scalar for the full dataset (not subsetted).
-        *None* = grey scatter.
+    :param color_values: Per-point scalar for the full dataset (not
+        subsetted). ``None`` = solid-colour pool (:data:`palette["blue"]`).
     :param color_label: Colorbar label.
-    :param save_path: Save figure here.
+    :param save_path: Save figure here. ``None`` skips saving.
     :param show: Call ``plt.show()``.
+    :returns: The figure.
     """
     set_mpl_style()
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
     kpc1 = proj_df["kpc1"].values
     kpc2 = proj_df["kpc2"].values
@@ -163,28 +183,131 @@ def plot_selection(
         scatter = ax.scatter(
             kpc1[idx_pool], kpc2[idx_pool],
             c=color_values[idx_pool],
-            s=60, alpha=0.7, edgecolors="none", cmap=cmap, norm=norm,
+            s=60, alpha=0.7, edgecolors="none",
+            cmap=cmap, norm=norm,
+            zorder=1,
         )
         cbar = fig.colorbar(scatter, ax=ax)
         cbar.set_label(color_label)
     else:
         ax.scatter(
             kpc1[idx_pool], kpc2[idx_pool],
-            c="#999999", s=20, edgecolors="none", zorder=1,
+            c=palette["blue"],
+            s=60, alpha=0.7, edgecolors="none",
+            zorder=1,
         )
 
-    # Selected — magenta, larger
-    s_size = 120 if color_values is not None else 60
+    # Selected — pink, larger, on top
     ax.scatter(
         kpc1[selected_indices], kpc2[selected_indices],
-        c=palette["magenta"], s=s_size, alpha=0.9,
-        edgecolors="none", zorder=5,
+        c=palette["pink"],
+        s=120, alpha=0.9, edgecolors="none",
+        zorder=5,
     )
 
     ev = explained_variance_pct
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     apply_axis_style(ax)
+
+    if save_path:
+        savefig(fig, save_path)
+    if show:
+        plt.show()
+    return fig
+
+
+def plot_selection_3d(
+    proj_df: pd.DataFrame,
+    idx_pool: np.ndarray,
+    selected_indices: np.ndarray,
+    explained_variance_pct: list[float],
+    *,
+    color_values: np.ndarray | None = None,
+    color_label: str = "",
+    save_path=None,
+    show: bool = True,
+    elev: float = 30.0,
+    azim: float = -60.0,
+) -> plt.Figure:
+    """3-D companion to :func:`plot_selection`.
+
+    Visually identical to :func:`sads.plotting.kpca.plot_kpca_3d` for
+    the base scatter; selections overlaid in :data:`palette["pink"]`
+    at twice the marker size. ``depthshade=False`` on the selected
+    layer keeps the pink markers visible even when they sit behind
+    dense regions of the cloud.
+
+    :param proj_df: Full projections DataFrame (all structures).
+        Must contain ``kpc1``, ``kpc2``, ``kpc3``.
+    :param idx_pool: Indices of structures that passed the filter.
+    :param selected_indices: Indices of selected structures.
+    :param explained_variance_pct: Explained variance per component
+        (%); must have at least three entries.
+    :param color_values: Per-point scalar for the full dataset (not
+        subsetted). ``None`` = solid-colour pool (:data:`palette["blue"]`).
+    :param color_label: Colorbar label.
+    :param save_path: Save figure here. ``None`` skips saving.
+    :param show: Call ``plt.show()``.
+    :param elev: 3-D view elevation, degrees.
+    :param azim: 3-D view azimuth, degrees.
+    :returns: The figure.
+    :raises KeyError: If ``proj_df`` does not contain a ``kpc3``
+        column.
+    :raises IndexError: If ``explained_variance_pct`` has fewer than
+        three entries.
+    """
+    if "kpc3" not in proj_df.columns:
+        raise KeyError(
+            "plot_selection_3d needs a 'kpc3' column in proj_df. "
+            "Rerun the kpca step (it now writes kpc1/kpc2/kpc3)."
+        )
+    if len(explained_variance_pct) < 3:
+        raise IndexError(
+            "explained_variance_pct must have at least 3 entries."
+        )
+
+    set_mpl_style()
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.view_init(elev=elev, azim=azim)
+
+    kpc1 = proj_df["kpc1"].values
+    kpc2 = proj_df["kpc2"].values
+    kpc3 = proj_df["kpc3"].values
+
+    if color_values is not None:
+        vmin, vmax = float(color_values.min()), float(color_values.max())
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        scatter = ax.scatter(
+            kpc1[idx_pool], kpc2[idx_pool], kpc3[idx_pool],
+            c=color_values[idx_pool],
+            s=60, alpha=0.7, edgecolors="none",
+            cmap=cmap, norm=norm, depthshade=True,
+        )
+        cbar = fig.colorbar(scatter, ax=ax, shrink=0.7, pad=0.1)
+        cbar.set_label(color_label)
+    else:
+        ax.scatter(
+            kpc1[idx_pool], kpc2[idx_pool], kpc3[idx_pool],
+            c=palette["blue"],
+            s=60, alpha=0.7, edgecolors="none",
+            depthshade=True,
+        )
+
+    # Selected — pink, larger; depthshade=False keeps them visible
+    # even when they sit behind dense regions of the cloud.
+    ax.scatter(
+        kpc1[selected_indices], kpc2[selected_indices], kpc3[selected_indices],
+        c=palette["pink"],
+        s=120, alpha=0.9, edgecolors="none",
+        depthshade=False,
+    )
+
+    ev = explained_variance_pct
+    ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
+    ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
+    ax.set_zlabel(rf"kPC#3 ({ev[2]:.1f}%)")
 
     if save_path:
         savefig(fig, save_path)

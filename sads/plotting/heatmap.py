@@ -8,6 +8,10 @@ When *x*, *y*, and *group_by* are omitted, :func:`infer_heatmap_layout`
 inspects the DataFrame to choose automatically:
 
 * Columns with a single unique value are dropped (fixed parameters).
+* Columns that are fully determined by other varying columns are
+  treated as *derived* (e.g. ``gamma`` after the median heuristic
+  resolves it from SOAP parameters) and excluded from axis candidates;
+  they would not produce a meaningful heatmap.
 * Categorical columns (strings) go to *group_by*.
 * Among the remaining numeric columns, the two with the most unique
   values become *x* and *y*; ties are broken by a domain-aware
@@ -27,6 +31,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.ticker import FixedLocator, FixedFormatter
 
+from sads.plotting._panel import panel_title as _panel_title
 from sads.plotting.style import set_mpl_style, savefig, cmap as project_cmap
 
 
@@ -34,13 +39,18 @@ from sads.plotting.style import set_mpl_style, savefig, cmap as project_cmap
 # Axis-label prettifiers
 # ------------------------------------------------------------------
 
+# Axis-label rendering matches the SOAP-knob notation in
+# sads.plotting._panel.soap_label, so heatmap axes and histogram
+# panel titles use the same symbols (no trailing units; units belong
+# in colorbar labels, not in axis labels for parameter sweeps).
 DEFAULT_LABEL_MAP: dict[str, str] = {
-    "n_max":          r"$n_{\mathrm{max}}$",
-    "l_max":          r"$l_{\mathrm{max}}$",
-    "r_cut":          r"$r_{\mathrm{cut}}$ (Å)",
-    "sigma":          r"$\sigma$ (Å)",
+    "n_max":          r"$n_{\max}$",
+    "l_max":          r"$l_{\max}$",
+    "r_cut":          r"$r_{\mathrm{cut}}$",
+    "sigma":          r"$\sigma$",
     "alpha":          r"$\alpha$",
     "gamma":          r"$\gamma$",
+    "degree":         r"$d$",
     "cka":            "CKA",
     "dissimilarity":  r"$1 - K$",
 }
@@ -51,18 +61,17 @@ _AXIS_PRIORITY: list[str] = [
     "r_cut", "sigma", "n_max", "l_max", "gamma", "alpha",
 ]
 
-
 def _pretty_label(col: str, label_map: Mapping[str, str] | None) -> str:
+    """Return a display label for a parameter column.
+
+    Strips any ``channel_name__`` prefix that multi-channel sweeps
+    insert, so axis labels read ``$r_{\\mathrm{cut}}$`` regardless of
+    which channel the swept knob belongs to.
+    """
     if label_map and col in label_map:
         return label_map[col]
-    return DEFAULT_LABEL_MAP.get(col, col)
-
-
-def _pretty_value(col: str, val) -> str:
-    label = DEFAULT_LABEL_MAP.get(col, col)
-    if isinstance(val, float):
-        return f"{label} = {val:g}"
-    return f"{label} = {val}"
+    bare = col.split("__", 1)[-1]
+    return DEFAULT_LABEL_MAP.get(bare, bare)
 
 
 # ------------------------------------------------------------------
@@ -70,11 +79,42 @@ def _pretty_value(col: str, val) -> str:
 # ------------------------------------------------------------------
 
 def _is_numeric_column(series: pd.Series) -> bool:
-    """True if all non-null values in *series* are numeric."""
+    """True if all non-null values in *series* are numeric.
+
+    :param series: Column to inspect.
+    :returns: ``True`` when every non-null entry is an integer or
+        floating-point scalar.
+    """
     vals = series.dropna().unique()
     if len(vals) == 0:
         return False
     return all(isinstance(v, (int, float, np.integer, np.floating)) for v in vals)
+
+
+def _is_derived_column(
+    df: pd.DataFrame, col: str, predictors: list[str],
+) -> bool:
+    """True if *col* is a deterministic function of *predictors*.
+
+    A column is "derived" when grouping by the predictors yields at
+    most one distinct value of *col* per group, ignoring NaNs. This
+    catches cases like ``gamma`` resolved by the median heuristic from
+    SOAP parameters: once the SOAP knobs are fixed, ``gamma`` is
+    fixed too, so it has no independent variation to display on an
+    axis.
+
+    :param df: Sweep DataFrame.
+    :param col: Candidate column name.
+    :param predictors: Other varying columns to test against.
+    :returns: ``True`` when *col* is determined by *predictors*.
+    """
+    if not predictors:
+        return False
+    sub = df[[*predictors, col]].dropna(subset=[col])
+    if sub.empty:
+        return False
+    grouped = sub.groupby(predictors, dropna=False)[col].nunique(dropna=True)
+    return bool((grouped <= 1).all())
 
 
 def infer_heatmap_layout(
@@ -85,62 +125,74 @@ def infer_heatmap_layout(
 ) -> tuple[str, str, list[str]]:
     """Choose *x*, *y*, and *group_by* from the DataFrame columns.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Sweep results.
-    value : str
-        Score column (excluded from consideration).
-    exclude : list of str, optional
-        Additional columns to ignore (e.g. ``["status"]``).
-
-    Returns
-    -------
-    x, y : str
-        Columns for the heatmap axes.
-    group_by : list of str
-        Columns for subplots (may be empty).
-
-    Raises
-    ------
-    ValueError
-        If fewer than two numeric columns vary.
+    :param df: Sweep results.
+    :param value: Score column (excluded from consideration).
+    :param exclude: Additional columns to ignore (e.g. ``["status"]``).
+    :returns: Tuple ``(x, y, group_by)`` where *x* and *y* are column
+        names for the heatmap axes and *group_by* is the (possibly
+        empty) list of columns whose unique combinations define
+        subplots.
+    :raises ValueError: If fewer than two independently-varying
+        numeric columns are available.
     """
     skip = {value, "status", *(exclude or [])}
     candidates = [c for c in df.columns if c not in skip]
 
-    # Separate varying columns into numeric vs categorical
-    numeric_varying: list[tuple[str, int]] = []   # (col, n_unique)
+    numeric_varying: list[tuple[str, int]] = []
     categorical_varying: list[str] = []
 
     for col in candidates:
         n_unique = df[col].nunique(dropna=True)
         if n_unique <= 1:
-            continue  # fixed parameter → ignore
+            continue
         if _is_numeric_column(df[col]):
             numeric_varying.append((col, n_unique))
         else:
             categorical_varying.append(col)
 
-    if len(numeric_varying) < 2:
-        have = [c for c, _ in numeric_varying]
+    # Drop numeric columns that are fully determined by other varying
+    # columns (e.g. gamma resolved by median heuristic from SOAP
+    # parameters). They can't be a meaningful axis: each combination
+    # of the other knobs picks exactly one value, so the heatmap
+    # would have one filled cell per row of the panel grid.
+    other_varying = (
+        [c for c, _ in numeric_varying] + categorical_varying
+    )
+    independent_numeric: list[tuple[str, int]] = []
+    derived_numeric: list[str] = []
+    for col, n_unique in numeric_varying:
+        predictors = [c for c in other_varying if c != col]
+        if _is_derived_column(df, col, predictors):
+            derived_numeric.append(col)
+        else:
+            independent_numeric.append((col, n_unique))
+
+    if derived_numeric:
+        print(f"  Heatmap layout: dropping derived columns {derived_numeric}")
+
+    if len(independent_numeric) < 2:
+        have = [c for c, _ in independent_numeric]
         raise ValueError(
-            f"Need ≥ 2 varying numeric columns for a heatmap, "
-            f"found {len(numeric_varying)}: {have}.  "
+            f"Need ≥ 2 independently-varying numeric columns for a "
+            f"heatmap, found {len(independent_numeric)}: {have}.  "
             f"Vary more parameters or pass x/y explicitly."
         )
 
-    # Sort: most unique values first, then by domain priority for ties
     def _sort_key(item: tuple[str, int]) -> tuple[int, int]:
         col, n_unique = item
-        priority = _AXIS_PRIORITY.index(col) if col in _AXIS_PRIORITY else len(_AXIS_PRIORITY)
+        priority = (
+            _AXIS_PRIORITY.index(col)
+            if col in _AXIS_PRIORITY else len(_AXIS_PRIORITY)
+        )
         return (-n_unique, priority)
 
-    numeric_varying.sort(key=_sort_key)
+    independent_numeric.sort(key=_sort_key)
 
-    x_col = numeric_varying[0][0]
-    y_col = numeric_varying[1][0]
-    group_by = [col for col, _ in numeric_varying[2:]] + categorical_varying
+    x_col = independent_numeric[0][0]
+    y_col = independent_numeric[1][0]
+    group_by = (
+        [col for col, _ in independent_numeric[2:]] + categorical_varying
+    )
 
     return x_col, y_col, group_by
 
@@ -338,7 +390,15 @@ def plot_grid_heatmaps(
             ax.set_yticklabels([])
 
         if group_by and key is not None:
-            ax.set_title(_panel_title(group_by, key), pad=6)
+            if isinstance(key, tuple):
+                title_params = dict(zip(group_by, key))
+            else:
+                title_params = {group_by[0]: key}
+            title = _panel_title(title_params)
+            n_lines = title.count("\n") + 1
+            fontsize = 6 if n_lines > 1 else 8
+            pad = 4 + 8 * (n_lines - 1)
+            ax.set_title(title, fontsize=fontsize, pad=pad)
 
     # ── Hide unused panels ────────────────────────────────────────
     for idx in range(n_panels, n_rows * n_cols):
@@ -382,10 +442,3 @@ def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
                 ax.text(xi, yi, f"{val:{fmt}}", ha="center", va="center",
                         fontsize=7, color="white" if luminance < 0.45 else "black")
 
-
-def _panel_title(group_by: list[str], key) -> str:
-    if isinstance(key, tuple):
-        parts = [_pretty_value(k, v) for k, v in zip(group_by, key)]
-    else:
-        parts = [_pretty_value(group_by[0], key)]
-    return ",  ".join(parts)

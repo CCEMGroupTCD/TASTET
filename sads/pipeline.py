@@ -12,15 +12,20 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
+from ase.io import write as ase_write
 
 from sads.soap_utils import compute_soap
 from sads.kernel import compute_kernel, resolve_kernel_params
 from sads.kpca import fit_kpca
-from sads.io import save_soap, load_soap, save_kernel, load_kernel
+from sads.io import (
+    save_soap, load_soap, save_kernel, load_kernel, load_atoms_and_meta,
+)
 from sads.distance import pairwise_dataframe, pairwise_distances
-from sads.plotting import plot_kpca
+from sads.plotting import plot_kpca, plot_kpca_3d
 from sads.plotting.heatmap import plot_grid_heatmaps
-from sads.plotting.distance import plot_distance_histogram, plot_grid_histograms
+from sads.plotting.distance import (
+    plot_distance_histogram, plot_distance_histogram_kde, plot_grid_histograms,
+)
 from sads.sweep import run_sweep, save_results
 
 
@@ -55,12 +60,16 @@ def kernel_step(cfg, ids: np.ndarray | list) -> None:
     the kernel.  The resolved parameters are persisted alongside the
     kernel matrix so the user can inspect the actual value used.
 
-    Also produces a distance-distribution histogram and a per-pair
-    distance CSV (sorted most-dissimilar-first) for inspecting specific
-    conformer pairs against the structure database.
+    Also produces two distance-distribution figures
+    (``distance_distribution.png`` — counts; and
+    ``kde_distance_distribution.png`` — density with a Gaussian-KDE
+    overlay) and a per-pair distance CSV (sorted most-dissimilar-first)
+    for inspecting specific conformer pairs against the structure
+    database.
 
     :param cfg: Config module (needs ``soap_path``, ``kernel_path``,
-        ``kernel_meta_path``, ``KERNEL_PARAMS``).
+        ``kernel_meta_path``, ``KERNEL_PARAMS``). Optionally reads
+        ``KERNEL_KDE_BANDWIDTH`` (default ``0.02``).
     :param ids: Structure identifiers (e.g. ``conformer_id`` values),
         one per row of the kernel.  Used for the pairwise CSV.
     """
@@ -87,10 +96,20 @@ def kernel_step(cfg, ids: np.ndarray | list) -> None:
 
 
 def _maybe_distance_outputs(cfg, ids: np.ndarray | list) -> None:
-    """Generate distance outputs if they don't already exist."""
+    """Generate distance outputs if any of them are missing.
+
+    Re-loads the kernel only when needed (i.e. when the user has run
+    ``kernel`` once already but new outputs have since been added to
+    the pipeline).
+
+    :param cfg: Config module.
+    :param ids: Structure identifiers (one per kernel row).
+    :returns: ``None``.
+    """
     hist_path = cfg.kernel_dir() / "distance_distribution.png"
+    kde_path = cfg.kernel_dir() / "kde_distance_distribution.png"
     csv_path = cfg.kernel_dir() / "pairwise_distances.csv"
-    if hist_path.exists() and csv_path.exists():
+    if hist_path.exists() and kde_path.exists() and csv_path.exists():
         return
     K = load_kernel(cfg.kernel_path())
     _save_distance_outputs(cfg, K, ids)
@@ -99,7 +118,17 @@ def _maybe_distance_outputs(cfg, ids: np.ndarray | list) -> None:
 def _save_distance_outputs(
     cfg, K: np.ndarray, ids: np.ndarray | list,
 ) -> None:
-    """Save distance histogram and pairwise CSV."""
+    """Save distance histogram, KDE overlay, and pairwise CSV.
+
+    Existing files are not overwritten — useful when the user reruns
+    ``kernel`` to pick up newly-added outputs without recomputing
+    everything.
+
+    :param cfg: Config module.
+    :param K: Normalised kernel matrix.
+    :param ids: Structure identifiers (one per kernel row).
+    :returns: ``None``.
+    """
     hist_path = cfg.kernel_dir() / "distance_distribution.png"
     if not hist_path.exists():
         plot_distance_histogram(
@@ -109,6 +138,18 @@ def _save_distance_outputs(
             show=getattr(cfg, "SHOW", False),
         )
         print(f"  Dist plot    -> {hist_path}")
+
+    kde_path = cfg.kernel_dir() / "kde_distance_distribution.png"
+    if not kde_path.exists():
+        bandwidth = getattr(cfg, "KERNEL_KDE_BANDWIDTH", 0.02)
+        plot_distance_histogram_kde(
+            K,
+            bandwidth=bandwidth,
+            title=f"Distance distribution (KDE) — {cfg.kernel_tag()}",
+            out_path=kde_path,
+            show=getattr(cfg, "SHOW", False),
+        )
+        print(f"  KDE plot     -> {kde_path}")
 
     csv_path = cfg.kernel_dir() / "pairwise_distances.csv"
     if not csv_path.exists():
@@ -125,25 +166,32 @@ def kpca_step(
     color_label: str = "",
     show: bool = True,
 ) -> None:
-    """Run kPCA, save projections + metadata, and plot.
+    """Run kPCA, save projections + metadata, and plot in 2-D and 3-D.
+
+    Fits three components and persists all three (``kpc1``, ``kpc2``,
+    ``kpc3``) to the projections CSV alongside the metadata. The JSON
+    metadata records the explained variance of all three. Both a 2-D
+    and a 3-D scatter are rendered; the 3-D figure goes next to the
+    2-D one with a ``_3d`` suffix.
 
     :param cfg: Config module (needs ``kernel_path``, ``kpca_csv_path``,
         ``kpca_meta_path``, ``plot_path``).
     :param meta: Metadata DataFrame (row order must match the kernel).
     :param color_values: Optional per-point scalar for the colorbar.
     :param color_label: Colorbar label.
-    :param show: Whether to display the plot interactively.
+    :param show: Whether to display the plots interactively.
     """
     if not cfg.kernel_path().exists():
         sys.exit(f"Missing: {cfg.kernel_path()}.  Run 'kernel' step first.")
 
     print(f"Loading kernel -> {cfg.kernel_path()}")
     K = load_kernel(cfg.kernel_path())
-    result = fit_kpca(K, n_components=2)
+    result = fit_kpca(K, n_components=3)
 
     proj_df = meta.copy()
     proj_df["kpc1"] = result.projections[:, 0]
     proj_df["kpc2"] = result.projections[:, 1]
+    proj_df["kpc3"] = result.projections[:, 2]
     proj_df.to_csv(cfg.kpca_csv_path(), index=False)
 
     kpca_meta = {"explained_variance_pct": (result.explained_variance * 100).tolist()}
@@ -153,14 +201,25 @@ def kpca_step(
     print(f"  Projections  -> {cfg.kpca_csv_path()}")
     print(f"  kPCA meta    -> {cfg.kpca_meta_path()}")
 
+    plot_2d = cfg.plot_path()
     plot_kpca(
         result,
         color_values=color_values,
         color_label=color_label,
-        save=cfg.plot_path(),
+        save=plot_2d,
         show=show,
     )
-    print(f"  Plot         -> {cfg.plot_path()}")
+    print(f"  Plot (2-D)   -> {plot_2d}")
+
+    plot_3d = plot_2d.with_name(f"{plot_2d.stem}_3d{plot_2d.suffix}")
+    plot_kpca_3d(
+        result,
+        color_values=color_values,
+        color_label=color_label,
+        save=plot_3d,
+        show=show,
+    )
+    print(f"  Plot (3-D)   -> {plot_3d}")
 
 
 def grid_search_step(
@@ -264,6 +323,12 @@ def _grid_distributions(
     for each combination, and collects the normalised kernel matrix.
     Produces a multi-panel histogram figure and a combined CSV of
     per-pair distances across all combinations.
+
+    :param cfg: Config module.
+    :param atoms_list: Structures to featurise.
+    :param ids: Structure identifiers, one per element of *atoms_list*.
+    :param fixed_soap_kw: Fixed SOAP kwargs (constant across sweep).
+    :returns: ``None``.
     """
     soap_grid = cfg.SOAP_GRID
     kernel_grid = cfg.KERNEL_GRID
@@ -289,11 +354,17 @@ def _grid_distributions(
             resolved = resolve_kernel_params(soap_list, dict(k_params))
             K = compute_kernel(soap_list, **resolved)
 
-            params = {**s_params, **k_params}
+            params = {**s_params, **resolved}
             kernel_entries.append({"K": K, "params": params})
 
             df_pairs = pairwise_dataframe(K, ids)
             for col, val in params.items():
+                # Ensure plain Python scalars — numpy generics and
+                # length-1 arrays are not broadcast by pandas.
+                if isinstance(val, np.generic):
+                    val = val.item()
+                elif isinstance(val, (np.ndarray, list, tuple)):
+                    val = val[0] if len(val) == 1 else str(val)
                 df_pairs[col] = val
             pair_frames.append(df_pairs)
 
@@ -343,14 +414,28 @@ def select_step(
 ) -> None:
     """Select representative structures via diverse sampling.
 
-    :param cfg: Config module (needs ``kpca_csv_path``, ``kpca_meta_path``,
-        ``kernel_path``, ``selection_csv_path``, ``selection_plot_path``,
-        ``SELECTION_K``, ``SELECTION_METHOD``, ``SEED``).
-    :param energy_max: Energy threshold for filtering.  *None* = no filter.
-    :param energy_col: Column name for the energy filter.  Required when
+    Writes ``selected_structures.csv`` with the metadata of the chosen
+    rows (``conformer_id`` is the only id column — there is no
+    redundant ``original_id`` or ``array_index``), and one ``.xyz``
+    file per selected structure under ``selection_dir/xyz/``. The
+    filename template is ``cfg.SELECTION_XYZ_TEMPLATE`` if defined,
+    otherwise ``"conformer_{id}.xyz"``.
+
+    Renders both a 2-D and a 3-D selection plot. The 3-D plot reads
+    the ``kpc3`` column from the projections CSV; if that column is
+    missing the projections CSV predates the 3-component change and
+    you'll get a clear error pointing you to rerun the kpca step.
+
+    :param cfg: Config module (needs ``db_path``, ``kpca_csv_path``,
+        ``kpca_meta_path``, ``kernel_path``, ``selection_csv_path``,
+        ``selection_plot_path``, ``selection_dir``, ``SELECTION_K``,
+        ``SELECTION_METHOD``, ``SEED``).
+    :param energy_max: Energy threshold for filtering. ``None`` = no
+        filter.
+    :param energy_col: Column name for the energy filter. Required when
         *energy_max* is set.
     :param color_values_col: Column in the projections CSV to use for
-        coloring the plot.  *None* = grey scatter.
+        colouring the plot. ``None`` = palette-blue scatter.
     :param color_label: Colorbar label.
     :param show: Whether to display the plot interactively.
     """
@@ -361,18 +446,21 @@ def select_step(
         (cfg.kpca_csv_path(), "kpca projections"),
         (cfg.kpca_meta_path(), "kpca metadata"),
         (cfg.kernel_path(), "kernel"),
+        (cfg.db_path(), "structures database"),
     ]:
         if not path.exists():
-            sys.exit(f"Missing {label}: {path}.  Run 'kpca' step first.")
+            sys.exit(f"Missing {label}: {path}.  Run earlier steps first.")
 
-    from sads.selection import select_structures, plot_selection
+    from sads.selection import (
+        select_structures, plot_selection, plot_selection_3d,
+    )
 
     proj_df = pd.read_csv(cfg.kpca_csv_path())
     K = load_kernel(cfg.kernel_path())
     with open(cfg.kpca_meta_path()) as f:
         ev_pct = json.load(f)["explained_variance_pct"]
 
-    selected, idx_pool = select_structures(
+    selected, idx_pool, selected_indices = select_structures(
         K,
         proj_df,
         energy_max=energy_max,
@@ -385,16 +473,53 @@ def select_step(
     selected.to_csv(cfg.selection_csv_path(), index=False)
     print(f"  Selected     -> {cfg.selection_csv_path()}")
 
+    cids = [int(c) for c in selected["conformer_id"]]
+    print(f"  conformer_ids ({len(cids)}, in selection order): {cids}")
+
+    # ── Write one .xyz per selected conformer ───────────────────────
+    template = getattr(cfg, "SELECTION_XYZ_TEMPLATE", "conformer_{id}.xyz")
+    atoms_list, _ = load_atoms_and_meta(cfg.db_path())
+    xyz_dir = cfg.selection_dir() / "xyz"
+    xyz_dir.mkdir(parents=True, exist_ok=True)
+    for cid in cids:
+        # conformer_id is 1-based and gap-free; row position in the
+        # database (and the kernel matrix) is conformer_id - 1.
+        atoms = atoms_list[cid - 1]
+        ase_write(str(xyz_dir / template.format(id=cid)), atoms)
+    print(f"  XYZ files    -> {xyz_dir}/  ({len(cids)} files, template '{template}')")
+
     color_values = proj_df[color_values_col].values if color_values_col else None
 
+    # ── 2-D plot ────────────────────────────────────────────────────
+    plot_2d = cfg.selection_plot_path()
     plot_selection(
         proj_df,
         idx_pool=idx_pool,
-        selected_indices=selected["array_index"].values,
+        selected_indices=selected_indices,
         explained_variance_pct=ev_pct,
         color_values=color_values,
         color_label=color_label,
-        save_path=cfg.selection_plot_path(),
+        save_path=plot_2d,
         show=show,
     )
-    print(f"  Plot         -> {cfg.selection_plot_path()}")
+    print(f"  Plot (2-D)   -> {plot_2d}")
+
+    # ── 3-D plot ────────────────────────────────────────────────────
+    if "kpc3" not in proj_df.columns:
+        sys.exit(
+            f"'kpc3' column missing from {cfg.kpca_csv_path()}. "
+            f"This projections CSV was written before kpca_step gained "
+            f"a third component. Delete the file and rerun 'kpca'."
+        )
+    plot_3d = plot_2d.with_name(f"{plot_2d.stem}_3d{plot_2d.suffix}")
+    plot_selection_3d(
+        proj_df,
+        idx_pool=idx_pool,
+        selected_indices=selected_indices,
+        explained_variance_pct=ev_pct,
+        color_values=color_values,
+        color_label=color_label,
+        save_path=plot_3d,
+        show=show,
+    )
+    print(f"  Plot (3-D)   -> {plot_3d}")
