@@ -47,7 +47,6 @@ examples/**
 !examples/nanoclusters/config.py
 !examples/nanoclusters/run.py
 !examples/nanoclusters/prepare.py
-!examples/nanoclusters/*.traj
 
 !examples/rh_complex/config.py
 !examples/rh_complex/run.py
