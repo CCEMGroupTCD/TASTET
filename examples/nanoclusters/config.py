@@ -152,7 +152,7 @@ N_SUBSAMPLE: int = 50
 NUM_BINS: int = 5
 
 # ── Input data ───────────────────────────────────────────────────────
-RUNS_DIR: Path = USE_CASE_DIR / "new_runs"
+RUNS_DIR: Path = USE_CASE_DIR / "input_runs"
 
 TARGET_RUNS: list[str] = [
     "run_000_n1000_1L", "run_001_n1000_1L", "run_002_n1000_1L",
