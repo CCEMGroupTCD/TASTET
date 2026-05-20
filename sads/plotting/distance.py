@@ -34,14 +34,17 @@ _KERNEL_KEYS = frozenset({
 
 
 def _kernel_formula(params: dict) -> str:
-    """Compact LaTeX formula for the local-environment kernel metric.
+    """Return a compact LaTeX formula for the local-environment kernel metric.
 
-    Examples
-    --------
-    linear                              → ``$p_i \\cdot q_j$``
-    polynomial  (γ=1, c₀=0, d=5)       → ``$(p_i \\cdot q_j)^5$``
-    polynomial  (γ=2, c₀=1, d=3)       → ``$(2\\,p_i \\cdot q_j + 1)^3$``
-    rbf         (γ=5)                   → ``$\\exp(-5\\,\\|p_i - q_j\\|^2)$``
+    :returns: LaTeX string describing the local-environment kernel metric.
+    :rtype: str
+
+    Examples::
+
+        linear                         -> ``$p_i \\cdot q_j$``
+        polynomial (gamma=1, c0=0, d=5) -> ``$(p_i \\cdot q_j)^5$``
+        polynomial (gamma=2, c0=1, d=3) -> ``$(2\\,p_i \\cdot q_j + 1)^3$``
+        rbf (gamma=5)                  -> ``$\\exp(-5\\,\\|p_i - q_j\\|^2)$``
     """
     metric = params.get("metric", "linear")
     dot = r"p_i \!\cdot\! q_j"

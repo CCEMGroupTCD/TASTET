@@ -28,28 +28,41 @@ class KPCAResult:
 def fit_kpca(K: np.ndarray, *, n_components: int = 2) -> KPCAResult:
     """Run Kernel PCA on a precomputed kernel matrix.
 
-    :param K: Precomputed kernel matrix.
-    :type K: ndarray, shape (N, N)
+    :param K: Precomputed kernel matrix of shape ``(N, N)``.
     :param n_components: Number of principal components to keep.
-    :type n_components: int
-    :return: kPCA output containing projections, eigenvalues, and explained
+    :returns: kPCA output containing projections, eigenvalues, and explained
         variance.
-    :rtype: KPCAResult
+
+    .. note::
+
+        scikit-learn's ``KernelPCA.eigenvalues_`` are the eigenvalues of the
+        centred kernel matrix :math:`H K H`, where
+        :math:`H = I - \\frac{1}{N}\\mathbf{1}\\mathbf{1}^T`.
+
+        The explained variance returned here divides each retained eigenvalue
+        by :math:`\\operatorname{Tr}(H K H)`, the total centred-kernel
+        variance across all components. Since
+
+        :math:`\\operatorname{Tr}(H K H) = \\operatorname{Tr}(K)
+        - \\frac{1}{N}\\sum_{ij} K_{ij}`,
+
+        this denominator gives the fraction of total centred-kernel variance,
+        matching the explained-variance label used in plots. Normalising by
+        only the retained eigenvalues is correct only when all components are
+        kept; with truncated ``n_components`` it can overstate the explained
+        fraction.
     """
-    # 1. Fit the standard kPCA
     kpca = KernelPCA(n_components=n_components, kernel="precomputed")
     projections = kpca.fit_transform(K)
     eigenvalues = kpca.eigenvalues_
 
-    # 2. Calculate the true total variance
     N = K.shape[0]
-    # The trace of the centered kernel matrix equals the sum of ALL its eigenvalues.
-    # Mathematically: Tr(K_centered) = Tr(K) - (1/N) * Sum(K)
-    true_total_variance = np.trace(K) - (1.0 / N) * np.sum(K)
 
-    # 3. Calculate the accurate explained variance
-    if true_total_variance > 0:
-        explained = eigenvalues / true_total_variance
+    # Total variance of the centred kernel, Tr(H K H).
+    total_centered_variance = np.trace(K) - (1.0 / N) * np.sum(K)
+
+    if total_centered_variance > 0:
+        explained = eigenvalues / total_centered_variance
     else:
         explained = np.zeros_like(eigenvalues)
 

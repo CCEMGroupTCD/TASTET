@@ -6,12 +6,15 @@ Supports k-medoids (cluster-based) and furthest point sampling
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import kmedoids as _kmedoids
 
 from sads.plotting.style import set_mpl_style, apply_axis_style, savefig, cmap, palette
@@ -34,12 +37,37 @@ def kernel_to_distance(K: np.ndarray) -> np.ndarray:
 # ── Sampling backends ─────────────────────────────────────────────────
 
 def _select_kmedoids(K_sub: np.ndarray, k: int, seed: int) -> np.ndarray:
+    """Select representative points using k-medoids clustering.
+
+    Converts the input kernel matrix to a distance matrix and applies the
+    FasterPAM k-medoids algorithm to select ``k`` medoids.
+
+    :param np.ndarray K_sub: Square kernel matrix for the candidate subset.
+    :param int k: Number of medoids to select.
+    :param int seed: Random seed used to initialize the k-medoids algorithm.
+    :returns: Indices of the selected medoids, relative to ``K_sub``.
+    """
     D = kernel_to_distance(K_sub)
     result = _kmedoids.fasterpam(D, k, random_state=seed)
     return np.array(result.medoids)
 
 
 def _select_fps(K_sub: np.ndarray, k: int, seed: int) -> np.ndarray:
+    """Select representative points using farthest point sampling.
+
+    Starts from a randomly selected point and iteratively adds the point whose
+    minimum squared distance to the selected set is largest. Squared distances
+    are computed directly from the kernel matrix as
+
+    .. math::
+
+        d^2(i, j) = K_{ii} + K_{jj} - 2K_{ij}.
+
+    :param np.ndarray K_sub: Square kernel matrix for the candidate subset.
+    :param int k: Number of points to select.
+    :param int seed: Random seed used to choose the initial point.
+    :returns: Indices of the selected points, relative to ``K_sub``.
+    """
     n = K_sub.shape[0]
     rng = np.random.default_rng(seed)
     selected = [int(rng.integers(n))]
@@ -141,9 +169,9 @@ def plot_selection(
     *,
     color_values: np.ndarray | None = None,
     color_label: str = "",
-    save_path=None,
-    show: bool = True,
-) -> plt.Figure:
+    save_path: Path | str | None = None,
+    show: bool = False,
+) -> tuple[Figure, Axes]:
     """kPCA scatter showing the filtered pool with selections highlighted.
 
     Visually identical to :func:`sads.plotting.kpca.plot_kpca` for the
@@ -167,7 +195,7 @@ def plot_selection(
     :param color_label: Colorbar label.
     :param save_path: Save figure here. ``None`` skips saving.
     :param show: Call ``plt.show()``.
-    :returns: The figure.
+    :returns: ``(fig, ax)``.
     """
     set_mpl_style()
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
@@ -214,7 +242,7 @@ def plot_selection(
         savefig(fig, save_path)
     if show:
         plt.show()
-    return fig
+    return fig, ax
 
 
 def plot_selection_3d(
@@ -225,11 +253,11 @@ def plot_selection_3d(
     *,
     color_values: np.ndarray | None = None,
     color_label: str = "",
-    save_path=None,
-    show: bool = True,
+    save_path: Path | str | None = None,
+    show: bool = False,
     elev: float = 30.0,
     azim: float = -60.0,
-) -> plt.Figure:
+) -> tuple[Figure, Axes]:
     """3-D companion to :func:`plot_selection`.
 
     Visually identical to :func:`sads.plotting.kpca.plot_kpca_3d` for
@@ -251,7 +279,7 @@ def plot_selection_3d(
     :param show: Call ``plt.show()``.
     :param elev: 3-D view elevation, degrees.
     :param azim: 3-D view azimuth, degrees.
-    :returns: The figure.
+    :returns: ``(fig, ax)``.
     :raises KeyError: If ``proj_df`` does not contain a ``kpc3``
         column.
     :raises IndexError: If ``explained_variance_pct`` has fewer than
@@ -313,4 +341,4 @@ def plot_selection_3d(
         savefig(fig, save_path)
     if show:
         plt.show()
-    return fig
+    return fig, ax

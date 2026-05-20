@@ -10,15 +10,17 @@ from sads.cka import cka_score as _cka_score
 class CKAScorer:
     """Score a kernel matrix against a target via CKA.
 
-    Parameters
-    ----------
-    target_kernel : ``"linear"`` or ``"rbf"``
-        Kernel applied to the target vector before alignment.
+    :param str target_kernel: Kernel applied to the target vector before
+        alignment. Must be ``"linear"`` or ``"rbf"``.
     """
 
     name: str = "cka"
 
     def __init__(self, target_kernel: str = "linear") -> None:
+        if target_kernel not in ("linear", "rbf"):
+            raise ValueError(
+                f"target_kernel must be 'linear' or 'rbf', got {target_kernel!r}"
+            )
         self.target_kernel = target_kernel
 
     def __call__(

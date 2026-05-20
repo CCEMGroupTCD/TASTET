@@ -28,7 +28,7 @@ SHOW: bool = False
 # ── Tensor product toggle ────────────────────────────────────────────
 # True  → combine multiple kernel channels defined in KERNEL_CHANNELS.
 # False → single-kernel mode using SOAP_PARAMS + KERNEL_PARAMS.
-USE_TENSOR_PRODUCT: bool = True
+USE_TENSOR_PRODUCT: bool = False
 
 
 # ─────────────────────────────────────────────────────────────────────

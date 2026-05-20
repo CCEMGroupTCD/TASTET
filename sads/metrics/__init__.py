@@ -15,6 +15,8 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
+__all__ = ["Scorer"]
+
 
 @runtime_checkable
 class Scorer(Protocol):

@@ -87,49 +87,35 @@ def compute_kernel(
     """
     Build a global similarity kernel from per-structure SOAP features.
 
-    :param soap_list:
-        One feature matrix per structure, typically produced by
+    :param soap_list: One feature matrix per structure, typically produced by
         :func:`sads.soap.compute_soap`.
-    :type soap_list: Sequence[numpy.ndarray]
-
-    :param method:
-        Global kernel type. Must be ``"average"`` or ``"rematch"``.
-    :type method: Literal["average", "rematch"]
-
-    :param metric:
-        Pairwise local-environment metric understood by DScribe / scikit-learn,
-        for example ``"linear"``, ``"rbf"``, or ``"polynomial"``.
-    :type metric: str
-
-    :param alpha:
-        REMatch regularisation parameter. Only used when
+    :param method: Global kernel type. Must be ``"average"`` or ``"rematch"``.
+    :param metric: Pairwise local-environment metric understood by DScribe /
+        scikit-learn, for example ``"linear"``, ``"rbf"``, or ``"polynomial"``.
+    :param alpha: REMatch regularisation parameter. Only used when
         ``method == "rematch"``.
-    :type alpha: float
-
-    :param normalize:
-        Whether to normalise the kernel so that diagonal elements satisfy
-        ``K[i, i] == 1``.
-    :type normalize: bool
-
-    :param verbose:
-        Whether to display a progress bar over kernel rows.
-    :type verbose: bool
-
-    :param metric_kwargs:
-        Additional keyword arguments forwarded to the DScribe kernel
-        constructor for the selected local metric. Examples include
-        ``gamma`` for ``"rbf"``, and ``degree``, ``gamma``, ``coef0``
-        for ``"polynomial"``.
-    :type metric_kwargs: Any
-
-    :returns:
-        Symmetric positive-semidefinite kernel matrix of shape ``(N, N)``.
+    :param normalize: Whether to normalise the kernel so that diagonal elements
+        satisfy ``K[i, i] == 1``. The default should normally be used.
+    :param verbose: Whether to display a progress bar over kernel rows.
+    :param metric_kwargs: Additional keyword arguments forwarded to the DScribe
+        kernel constructor for the selected local metric. Examples include
+        ``gamma`` for ``"rbf"``, and ``degree``, ``gamma``, ``coef0`` for
+        ``"polynomial"``.
+    :returns: Symmetric kernel matrix of shape ``(N, N)``.
     :rtype: numpy.ndarray
+    :raises ValueError: If ``method`` is not one of ``"average"`` or
+        ``"rematch"``.
 
-    :raises ValueError:
-        If ``method`` is not one of ``"average"`` or ``"rematch"``.
+    .. warning::
+
+        Downstream parts of the pipeline assume a normalised kernel with unit
+        diagonal. In particular, kernel-induced distances, kernel PCA, and
+        structure selection rely on ``K[i, i] == 1``. Set ``normalize=False`` only
+        for low-level diagnostics or custom workflows that do not use those
+        downstream steps.
 
     .. note::
+
         ``gamma="median"`` must be resolved *before* calling this function.
         Use :func:`resolve_kernel_params` to do so.
     """

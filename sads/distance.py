@@ -32,17 +32,13 @@ D_MAX: float = float(np.sqrt(2.0))
 
 
 def pairwise_distances(K: np.ndarray) -> np.ndarray:
-    """Kernel-induced distances for every unique pair (upper triangle).
+    """Compute kernel-induced distances for every unique pair.
 
-    Parameters
-    ----------
-    K : ndarray, shape (N, N)
-        Normalised kernel matrix (diagonal ≈ 1).
-
-    Returns
-    -------
-    ndarray, shape (N*(N-1)/2,)
-        ``d(i, j) = sqrt(2 * (1 − K[i, j]))`` for each unique pair.
+    :param K: Normalised kernel matrix with diagonal approximately equal to 1.
+    :type K: ndarray, shape (N, N)
+    :returns: Distances for each unique pair, where
+        :math:`d(i, j) = \sqrt{2(1 - K[i, j])}`.
+    :rtype: ndarray, shape (N(N - 1)/2,)
     """
     n = K.shape[0]
     if n < 2:
@@ -59,19 +55,14 @@ def pairwise_dataframe(
 ) -> pd.DataFrame:
     """Build a DataFrame of all unique pairwise distances with structure IDs.
 
-    Parameters
-    ----------
-    K : ndarray, shape (N, N)
-        Normalised kernel matrix.
-    ids : array-like, shape (N,)
-        Identifier for each structure (e.g. ``conformer_id`` from the
-        database).  Row order must match *K*.
-
-    Returns
-    -------
-    DataFrame
-        Columns: ``id_i``, ``id_j``, ``d``.  Sorted by *d* descending
-        so the most dissimilar pairs appear first.
+    :param K: Normalised kernel matrix.
+    :type K: ndarray, shape (N, N)
+    :param ids: Identifier for each structure, for example ``conformer_id``
+        from the database. Row order must match ``K``.
+    :type ids: array-like, shape (N,)
+    :returns: DataFrame with columns ``id_i``, ``id_j``, and ``d``, sorted by
+        ``d`` descending so the most dissimilar pairs appear first.
+    :rtype: DataFrame
     """
     n = K.shape[0]
     if n < 2:

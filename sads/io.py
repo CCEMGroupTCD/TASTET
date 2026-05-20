@@ -59,24 +59,19 @@ def subsample_from_db(
     *,
     seed: int = 42,
 ) -> tuple[list, pd.DataFrame]:
-    """Randomly subsample *n* structures from an ASE database.
+    """Randomly subsample ``n`` structures from an ASE database.
 
-    If the database contains *n* or fewer structures, all are returned
-    (no actual subsampling).
+    If the database contains ``n`` or fewer structures, all structures are returned
+    without subsampling.
 
-    Parameters
-    ----------
-    db_path : path
-        Path to the ``.db`` file.
-    n : int
-        Desired number of structures.
-    seed : int
-        Random state for reproducibility.
-
-    Returns
-    -------
-    (atoms_list, meta)
-        Subsampled structures and their metadata, row-aligned.
+    :param db_path: Path to the ``.db`` file.
+    :type db_path: path
+    :param n: Desired number of structures.
+    :type n: int
+    :param seed: Random state for reproducibility.
+    :type seed: int:
+    :returns: Subsampled structures and their metadata, row-aligned.
+    :rtype: tuple[list, list]
     """
     atoms_list, meta = load_atoms_and_meta(db_path)
     total = len(atoms_list)

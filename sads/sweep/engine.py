@@ -39,7 +39,7 @@ def run_sweep(
     atoms_list: Sequence,
     target: np.ndarray | None,
     soap_grid: dict[str, list],
-    kernel_grid: dict[str, list],
+    kernel_grid: list[dict[str, Any]],
     scorer: Scorer,
     *,
     fixed_soap_kw: dict | None = None,
@@ -49,45 +49,25 @@ def run_sweep(
     """Sweep all SOAP × kernel combinations and score each one with ``scorer``.
 
     :param atoms_list: Structures to featurise.
-    :type atoms_list: Sequence
-
-    :param target: Reference values passed through to the scorer, such as
-        energies. Ignored by scorers that do not need it.
-    :type target: numpy.ndarray | None
-
-    :param soap_grid: Mapping of SOAP keyword argument names to lists of values
-        to sweep. Example:
-        ``{"r_cut": [3.0, 5.0], "sigma": [0.1, 0.5]}``
-    :type soap_grid: dict[str, list]
-
-    :param kernel_grid: Mapping of
-        :func:`~sads.kernel.compute_kernel` keyword argument names to lists of
-        values to sweep. Example:
-        ``{"method": ["rematch"], "alpha": [0.1, 0.5]}``
-    :type kernel_grid: dict[str, list]
-
+    :param target: Reference values passed through to the scorer, such as energies.
+        Ignored by scorers that do not need it.
+    :param soap_grid: Mapping of SOAP keyword argument names to lists of values to
+        sweep. Example: ``{"r_cut": [3.0, 5.0], "sigma": [0.1, 0.5]}``.
+    :param kernel_grid: Mapping of :func:`~sads.kernel.compute_kernel` keyword
+        argument names to lists of values to sweep. Example:
+        ``[{"method": "rematch", "alpha": 0.1}, {"method": "rematch", "alpha": 0.5}]``.
     :param scorer: Callable with signature ``(K, target) -> float | None``.
-    :type scorer: Scorer
-
     :param fixed_soap_kw: SOAP keyword arguments kept constant across the sweep,
         such as ``species`` or ``center_atoms``.
-    :type fixed_soap_kw: dict | None
-
-    :param soap_fn: Drop-in replacement for
-        :func:`~sads.soap_utils.compute_soap`. It must accept
-        ``(atoms_list, **kwargs)`` and return a list of ndarrays.
-    :type soap_fn: Callable | None
-
-    :param normalize_kernel: Whether to normalize the kernel before scoring.
-        Passed to :func:`~sads.kernel.compute_kernel`.
-    :type normalize_kernel: bool
-
-    :returns: A dataframe with one row per parameter combination. Columns
-        include every swept parameter, ``scorer.name`` for the score, and
-        ``"status"`` with one of ``"OK"``, ``"SOAP_FAIL"``,
-        ``"KERNEL_FAIL"``, ``"OVERFLOW"``, or ``"SCORE_FAIL"``.
-        When ``gamma="median"`` is resolved, the ``gamma`` column contains
-        the numeric value that was actually used.
+    :param soap_fn: Drop-in replacement for :func:`~sads.soap_utils.compute_soap`.
+        It must accept ``(atoms_list, **kwargs)`` and return a list of ndarrays.
+    :param normalize_kernel: Whether to normalise the kernel before scoring. Passed
+        to :func:`~sads.kernel.compute_kernel`.
+    :returns: DataFrame with one row per parameter combination. Columns include
+        every swept parameter, ``scorer.name`` for the score, and ``"status"`` with
+        one of ``"OK"``, ``"SOAP_FAIL"``, ``"KERNEL_FAIL"``, ``"OVERFLOW"``, or
+        ``"SCORE_FAIL"``. When ``gamma="median"`` is resolved, the ``gamma`` column
+        contains the numeric value that was actually used.
     :rtype: pandas.DataFrame
     """
     if soap_fn is None:
