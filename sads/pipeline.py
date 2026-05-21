@@ -21,6 +21,7 @@ from sads.io import (
     save_soap, load_soap, save_kernel, load_kernel, load_atoms_and_meta,
 )
 from sads.distance import pairwise_dataframe, pairwise_distances
+from sads.metrics import Scorer
 from sads.plotting import plot_kpca, plot_kpca_3d
 from sads.plotting.heatmap import plot_grid_heatmaps
 from sads.plotting.distance import (
@@ -164,7 +165,7 @@ def kpca_step(
     *,
     color_values: np.ndarray | None = None,
     color_label: str = "",
-    show: bool = True,
+    show: bool | None = None,
 ) -> None:
     """Run kPCA, save projections + metadata, and plot in 2-D and 3-D.
 
@@ -179,8 +180,12 @@ def kpca_step(
     :param meta: Metadata DataFrame (row order must match the kernel).
     :param color_values: Optional per-point scalar for the colorbar.
     :param color_label: Colorbar label.
-    :param show: Whether to display the plots interactively.
+    :param show: Whether to display the plots interactively. ``None``
+        (default) falls back to ``cfg.SHOW``.
     """
+    if show is None:
+        show = getattr(cfg, "SHOW", False)
+
     if not cfg.kernel_path().exists():
         sys.exit(f"Missing: {cfg.kernel_path()}.  Run 'kernel' step first.")
 
@@ -226,7 +231,7 @@ def grid_search_step(
     cfg,
     atoms_list: list,
     ids: np.ndarray | list,
-    scorer,
+    scorer: Scorer | None = None,
     *,
     target: np.ndarray | None = None,
     fixed_soap_kw: dict | None = None,
@@ -235,7 +240,8 @@ def grid_search_step(
 
     When *target* is provided (supervised), CKA / scorer heatmaps **and**
     distance distribution histograms are generated.  When *target* is
-    ``None`` (unsupervised), only distance distributions are produced.
+    ``None`` (unsupervised), only distance distributions are produced and
+    *scorer* is unused — pass ``None`` in that case.
 
     A per-pair distance CSV is always saved so that specific conformer
     pairs can be cross-referenced with the structure database.
@@ -245,7 +251,8 @@ def grid_search_step(
     :param atoms_list: Structures to featurise (e.g. two reference conformers,
         or a subsampled dataset).
     :param ids: Structure identifiers, one per element of *atoms_list*.
-    :param scorer: A :class:`~sads.metrics.Scorer` instance.
+    :param scorer: A :class:`~sads.metrics.Scorer` instance, required only
+        when *target* is provided. ``None`` when *target* is ``None``.
     :param target: Target array passed to the scorer (e.g. energies).
     :param fixed_soap_kw: Fixed SOAP kwargs (constant across sweep), e.g.
         ``center_atoms``, ``centers``, ``average``, ``n_jobs``.
@@ -410,7 +417,7 @@ def select_step(
     energy_col: str | None = None,
     color_values_col: str | None = None,
     color_label: str = "",
-    show: bool = True,
+    show: bool | None = None,
 ) -> None:
     """Select representative structures via diverse sampling.
 
@@ -437,8 +444,12 @@ def select_step(
     :param color_values_col: Column in the projections CSV to use for
         colouring the plot. ``None`` = palette-blue scatter.
     :param color_label: Colorbar label.
-    :param show: Whether to display the plot interactively.
+    :param show: Whether to display the plot interactively. ``None``
+        (default) falls back to ``cfg.SHOW``.
     """
+    if show is None:
+        show = getattr(cfg, "SHOW", False)
+
     if energy_max is not None and not energy_col:
         raise ValueError("energy_col is required when energy_max is set.")
 

@@ -15,7 +15,6 @@ import json
 import sys
 import warnings
 from itertools import product as iproduct
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -52,41 +51,7 @@ warnings.filterwarnings("ignore", message="invalid value encountered in scalar d
 warnings.filterwarnings("ignore", message="divide by zero encountered in scalar divide", category=RuntimeWarning)
 
 
-# ── Cache helpers ─────────────────────────────────────────────────────
-
-def _params_match(a: dict, b: dict) -> bool:
-    """Compare two parameter dicts by their canonical JSON form.
-
-    Using JSON canonicalisation rather than direct ``==`` so that
-    bool/int collisions, dict ordering, and ``numpy`` scalars (when
-    present) don't produce false negatives.
-
-    :param a: First parameter dict.
-    :param b: Second parameter dict.
-    :returns: ``True`` if the two serialise to the same string.
-    """
-    sa = json.dumps(a, sort_keys=True, default=str)
-    sb = json.dumps(b, sort_keys=True, default=str)
-    return sa == sb
-
-
-def _invalidate_channel_kpca(name: str) -> None:
-    """Delete per-channel kPCA outputs for one channel.
-
-    Called after a channel kernel is recomputed, so that the next
-    ``kpca`` step regenerates the projection rather than serving a
-    stale one from a previous kernel.
-
-    :param name: Channel name (must match a ``KERNEL_CHANNELS`` entry).
-    :returns: ``None``.
-    """
-    ch_dir = cfg.channel_dir(name)
-    for fname in ("kpca.png", "kpca_projections.csv", "kpca_meta.json"):
-        p = ch_dir / fname
-        if p.exists():
-            p.unlink()
-            print(f"  Invalidated stale -> {p}")
-
+# ── Combined-kernel output helper ────────────────────────────────────
 
 def _save_combined_distance_outputs(
     cfg, K: np.ndarray, ids: np.ndarray | list,
@@ -360,12 +325,12 @@ def _multichannel_grid_search() -> None:
 def _soap() -> None:
     """Compute and cache SOAP descriptors for the active database.
 
-    Single-kernel mode produces one descriptor set; multi-channel mode
-    produces one per entry in ``KERNEL_CHANNELS``. The per-channel
-    cache is keyed by channel name only — if you change SOAP params
-    in ``KERNEL_CHANNELS[i]["soap"]``, delete the corresponding
-    ``channels/<name>/soap.npz`` before rerunning to avoid loading a
-    stale descriptor.
+    Single-kernel mode produces one descriptor set keyed by
+    :func:`config.soap_tag`. Multi-channel mode produces one per entry
+    in ``KERNEL_CHANNELS``, each cached under a hash-keyed path
+    (``channels/<name>/<soap_tag>/soap.npz``) so that changing a
+    channel's SOAP parameters yields a new cache directory rather than
+    overwriting the old one.
     """
     atoms, _ = load_atoms_and_meta(cfg.db_path())
 
@@ -374,7 +339,7 @@ def _soap() -> None:
         soap_step(cfg, atoms, centers=centers)
         return
 
-    # ── Multi-channel: one SOAP per channel ──────────────────────────
+    # ── Multi-channel: one SOAP per channel (hash-keyed path) ────────
     for ch in cfg.KERNEL_CHANNELS:
         name = ch["name"]
         path = cfg.channel_soap_path(ch)
@@ -395,20 +360,15 @@ def _kernel() -> None:
     Single-kernel mode delegates to :func:`sads.pipeline.kernel_step`
     (which writes both the count-based histogram and the KDE overlay).
 
-    Multi-channel mode loads each channel's SOAP, resolves the
-    channel's kernel parameters, and compares them against the
-    previously cached ``kernel_meta.json``. If the resolved parameters
-    match, the cached kernel is loaded; otherwise the channel kernel
-    is recomputed and the corresponding per-channel kPCA outputs are
-    invalidated so the next ``kpca`` step regenerates them. The
-    channels are then combined via ``KERNEL_COMBINE`` /
-    ``KERNEL_WEIGHTS`` and the combined-kernel distance outputs are
-    written via :func:`_save_combined_distance_outputs`, which skips
-    any output that already exists. Re-running ``kernel`` after
-    deleting one of the distance outputs (e.g.
-    ``kde_distance_distribution.png`` after bumping
-    ``KERNEL_KDE_BANDWIDTH``) regenerates just that file without
-    recomputing kernels.
+    Multi-channel mode looks up each channel's SOAP and kernel at their
+    hash-keyed cache paths. A kernel cache hit is a plain path-existence
+    check — different parameter sets land in different directories by
+    construction, so swapping a channel's parameters back and forth
+    (e.g. ``alpha=0.5`` ↔ ``alpha=0.1``) reuses both caches for free.
+    The channels are combined via ``KERNEL_COMBINE`` / ``KERNEL_WEIGHTS``
+    and the combined-kernel distance outputs are written via
+    :func:`_save_combined_distance_outputs`, which skips outputs that
+    already exist.
     """
     atoms, meta = load_atoms_and_meta(cfg.db_path())
     ids = meta["conformer_id"].values
@@ -425,7 +385,6 @@ def _kernel() -> None:
         return
 
     # ── Multi-channel: one kernel per channel, then combine ──────────
-    # Resolve species for metadata (auto-inferred when not set explicitly)
     all_species = sorted({
         s for a in atoms for s in a.get_chemical_symbols()
     })
@@ -442,30 +401,28 @@ def _kernel() -> None:
         print(f"Loading SOAP [{name}] -> {soap_p}")
         soap_list = load_soap(soap_p)
 
-        k_params = resolve_kernel_params(soap_list, ch["kernel"])
         kernel_p = cfg.channel_kernel_path(ch)
         meta_p = cfg.channel_kernel_dir(ch) / "kernel_meta.json"
 
-        # ── Cache-or-compute decision ───────────────────────────────
-        cached = None
-        if kernel_p.exists() and meta_p.exists():
-            with open(meta_p) as f:
-                cached = json.load(f)
-
-        if cached is not None and _params_match(cached, k_params):
-            print(f"Loading kernel [{name}] -> {kernel_p}  (params match)")
+        if kernel_p.exists():
+            print(f"Loading kernel [{name}] -> {kernel_p}")
             K_ch = load_kernel(kernel_p)
+            if meta_p.exists():
+                with open(meta_p) as f:
+                    k_params = json.load(f)
+            else:
+                # Kernel present but meta missing: re-resolve to populate
+                # channel_meta below, and write the meta for next time.
+                k_params = resolve_kernel_params(soap_list, ch["kernel"])
+                with open(meta_p, "w") as f:
+                    json.dump(k_params, f, indent=2)
         else:
-            if cached is not None:
-                print(f"  Kernel params changed for [{name}]; recomputing ...")
+            k_params = resolve_kernel_params(soap_list, ch["kernel"])
             K_ch = compute_kernel(soap_list, **k_params)
             save_kernel(K_ch, kernel_p)
             print(f"  Channel kernel [{name}] -> {kernel_p}")
             with open(meta_p, "w") as f:
                 json.dump(k_params, f, indent=2)
-            # The previous per-channel kPCA was based on the old
-            # kernel; force it to regenerate next time.
-            _invalidate_channel_kpca(name)
 
         per_channel.append(K_ch)
         soap_with_species = dict(ch["soap"])
@@ -495,8 +452,10 @@ def _kpca() -> None:
     which fits three components, persists ``kpc1``/``kpc2``/``kpc3``
     to the projections CSV and produces both ``kpca.png`` and
     ``kpca_3d.png``. In multi-channel mode each per-channel kernel is
-    also projected (2-D only — single-channel diagnostics, not used
-    by ``select``).
+    also projected (2-D only — single-channel diagnostics, not used by
+    ``select``). Per-channel kPCA outputs live inside the same
+    hash-keyed directory as their kernel, so a kernel cached at one
+    parameter set never inherits a kPCA computed from a different one.
     """
     _, meta = load_atoms_and_meta(cfg.db_path())
 
@@ -513,12 +472,12 @@ def _kpca() -> None:
         if not k_path.exists():
             sys.exit(f"Missing channel kernel [{name}]: {k_path}.  Run 'kernel' step first.")
 
-        ch_dir = cfg.channel_dir(name)
-        plot_path = ch_dir / "kpca.png"
-        csv_path = ch_dir / "kpca_projections.csv"
+        ch_kdir = cfg.channel_kernel_dir(ch)
+        plot_path = ch_kdir / "kpca.png"
+        csv_path = ch_kdir / "kpca_projections.csv"
 
         if plot_path.exists() and csv_path.exists():
-            print(f"kPCA [{name}] already exists -> {ch_dir}")
+            print(f"kPCA [{name}] already exists -> {ch_kdir}")
             continue
 
         print(f"Running kPCA [{name}] ...")
@@ -531,7 +490,7 @@ def _kpca() -> None:
         proj_df.to_csv(csv_path, index=False)
 
         kpca_meta = {"explained_variance_pct": (result.explained_variance * 100).tolist()}
-        with open(ch_dir / "kpca_meta.json", "w") as f:
+        with open(ch_kdir / "kpca_meta.json", "w") as f:
             json.dump(kpca_meta, f, indent=2)
 
         plot_kpca(result, save=plot_path, show=show)
@@ -573,12 +532,14 @@ Available steps:
                      and combines; otherwise single-kernel sweep.
                      Subject to MAX_GRID_COMBINATIONS.
   3.  soap           Compute SOAP.  When USE_TENSOR_PRODUCT = True,
-                     computes one SOAP per channel; otherwise single-config.
+                     computes one SOAP per channel (hash-keyed path).
   4.  kernel         Build kernel matrix + distance histogram + KDE overlay
-                     + pairwise CSV. Per-channel kernels are cached against
-                     their kernel_meta.json; the combined-kernel distance
-                     outputs are regenerated individually when missing.
+                     + pairwise CSV. Per-channel kernels are cached at
+                     hash-keyed paths nested inside the channel's SOAP
+                     directory, so swapping kernel parameters is free.
   5.  kpca           Run kPCA, save projections + 2-D and 3-D plots.
+                     Per-channel kPCA outputs live next to the channel's
+                     kernel and inherit its hash key.
   6.  select         Select representative conformers; write .xyz files.
 
   Examples:  python run.py db

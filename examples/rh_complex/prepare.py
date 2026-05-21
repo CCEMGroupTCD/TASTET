@@ -78,24 +78,24 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
 def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
     """Decide which atoms to use as SOAP centres.
 
-    Parameters
-    ----------
-    center_atoms : list[str] | None, optional
-        If provided explicitly (including ``None``), that value is used
-        instead of looking up ``SOAP_PARAMS["center_atoms"]``.
-        This lets callers point at a different source of truth
+    Priority:
+
+    1. ``center_atoms`` is a non-empty list → return ``None`` (SOAP
+       centres on those species directly; no index list needed).
+    2. ``FLEXIBLE_SMARTS`` set in config → return a list of 0-based
+       indices for the flexible atoms.
+    3. Neither → return ``None`` (all atoms).
+
+    If *both* ``center_atoms`` and ``FLEXIBLE_SMARTS`` are set, a
+    warning is issued and ``center_atoms`` takes precedence.
+
+    :param center_atoms: Explicit centre species (including ``None``).
+        When left as the ``_UNSET`` sentinel (the default), the value
+        is looked up from ``SOAP_PARAMS["center_atoms"]``. Passing it
+        explicitly lets callers point at a different source of truth
         (e.g. ``FIXED_SOAP_KW`` for the grid search).
-
-    Priority
-    --------
-    1. ``center_atoms`` is a non-empty list →  return **None** (SOAP will
-       centre on those species directly; no index list needed).
-    2. ``FLEXIBLE_SMARTS`` in config        →  return a **list of indices**
-       for the flexible atoms.
-    3. Neither                              →  return **None** (all atoms).
-
-    If *both* ``center_atoms`` and ``FLEXIBLE_SMARTS`` are set, the user
-    is warned and ``center_atoms`` takes precedence.
+    :returns: A list of 0-based atom indices (flexible-atom case), or
+        ``None`` (species-based or all-atoms case).
     """
     if center_atoms is _UNSET:
         center_atoms = cfg.SOAP_PARAMS.get("center_atoms")

@@ -1,3 +1,10 @@
+"""Project-wide matplotlib styling: palette, colormap, rcParams, save helper.
+
+Defines the SADS colour palette and gradient colormap, applies a
+consistent set of rcParams, and provides axis-styling and figure-saving
+helpers used across every plotting module.
+"""
+
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -24,11 +31,19 @@ cmap = LinearSegmentedColormap.from_list(
 
 _MINUS = "\N{MINUS SIGN}"
 
+
 def _make_minus_formatter(fmt: str = ".1f"):
+    """Build a tick formatter that renders the Unicode minus sign.
+
+    :param fmt: ``format`` spec applied to each tick value (e.g. ``".1f"``).
+    :returns: A formatter callable suitable for
+        :class:`matplotlib.ticker.FuncFormatter`.
+    """
     def _formatter(x, _pos=None) -> str:
         s = format(x, fmt)
         return s.replace("-", _MINUS)
     return _formatter
+
 
 def set_mpl_style(
     font_family: str = "sans-serif",
@@ -36,7 +51,15 @@ def set_mpl_style(
     base_fontsize: int = 12,
     pdf_fonttype: int = 42,
 ) -> None:
-    """Apply project-wide matplotlib rcParams."""
+    """Apply project-wide matplotlib rcParams.
+
+    :param font_family: Matplotlib ``font.family``.
+    :param font_sans: Candidate sans-serif faces, in priority order.
+    :param base_fontsize: Base size applied to text, labels, ticks, legend,
+        and titles.
+    :param pdf_fonttype: ``pdf.fonttype`` (42 embeds TrueType for editable
+        text in vector output).
+    """
     plt.rcParams["font.family"] = font_family
     plt.rcParams["font.sans-serif"] = list(font_sans)
     plt.rcParams["pdf.fonttype"] = pdf_fonttype
@@ -50,6 +73,7 @@ def set_mpl_style(
         "axes.titlesize": base_fontsize,
     })
 
+
 def apply_axis_style(
     ax,
     use_minor_x: bool = True,
@@ -57,6 +81,18 @@ def apply_axis_style(
     xfmt: str = "%.2f",
     yfmt: str = "%.2f",
 ) -> None:
+    """Apply consistent tick styling and numeric formatting to an axis.
+
+    Adds outward major/minor ticks with round caps, optional minor-tick
+    locators, and a numeric formatter that uses the Unicode minus sign.
+
+    :param ax: Target axes.
+    :param use_minor_x: Add minor ticks on the x-axis.
+    :param use_minor_y: Add minor ticks on the y-axis.
+    :param xfmt: Format spec for x-axis major ticks. A leading ``%`` is
+        stripped (so both ``"%.2f"`` and ``".2f"`` work).
+    :param yfmt: Format spec for y-axis major ticks.
+    """
     ax.tick_params(which="major", direction="out", top=False, right=False, length=5, width=1.0)
     ax.tick_params(which="minor", direction="out", length=3, width=1.0)
 
@@ -80,8 +116,22 @@ def apply_axis_style(
             m0 = minors[0].get_marker()
             plt.setp(minors, marker=MarkerStyle(m0, capstyle="round"))
 
-def savefig(fig, path: Path, dpi: int = 450) -> None:
+
+def savefig(fig, path: Path, dpi: int = 300) -> None:
+    """Save a figure at a fixed canvas size.
+
+    Deliberately omits ``bbox_inches="tight"`` so that every figure is
+    written at exactly ``figsize × dpi`` pixels. Cropping to content
+    would make two figures with the same ``figsize`` but slightly
+    different label extents save at different pixel dimensions, breaking
+    side-by-side panel alignment (e.g. ``kpca.png`` vs ``selection.png``).
+
+    :param fig: Figure to save.
+    :param path: Output path; parent directories are created as needed.
+    :param dpi: Resolution in dots per inch. The default of ``300`` is the
+        canonical figure resolution; callers that want lighter diagnostic
+        images (e.g. distance histograms) pass a lower value explicitly.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # fig.savefig(path, dpi=dpi, transparent=False, bbox_inches="tight", pad_inches=0.0)
     fig.savefig(path, dpi=dpi, transparent=False, pad_inches=0.0)

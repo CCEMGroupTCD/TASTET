@@ -116,6 +116,8 @@ KERNEL_CHANNELS: list[dict] = [
     },
 ]
 KERNEL_COMBINE: str = "product"
+# KERNEL_WEIGHTS apply only when KERNEL_COMBINE == "weighted_sum";
+# they are ignored for "product" and "sum".
 KERNEL_WEIGHTS: list[float] = [0.8, 0.2]
 
 
@@ -145,9 +147,10 @@ FLEXIBLE_INCLUDE_H: bool = False
 def _use_channels() -> bool:
     """Whether multi-channel kernel mode is active.
 
-    :returns: ``True`` when ``USE_TENSOR_PRODUCT`` is set.
+    :returns: ``True`` when ``USE_TENSOR_PRODUCT`` is set *and*
+        ``KERNEL_CHANNELS`` is non-empty.
     """
-    return bool(globals().get("USE_TENSOR_PRODUCT", False))
+    return bool(globals().get("USE_TENSOR_PRODUCT", False)) and bool(KERNEL_CHANNELS)
 
 
 def _centers_tag() -> str:
@@ -199,8 +202,8 @@ def combined_kernel_tag() -> str:
 
     Hashes the same parameter set as :func:`grid_search_tag` (channel
     branch), so that different combine modes / weightings produce
-    distinct directories. Mirrors the field set used in ana_conformers
-    for cross-use-case consistency.
+    distinct directories. The field set is kept identical across the
+    use cases for cross-use-case consistency.
 
     :returns: ``f"{combine}_{8-char-hash}"``.
     """

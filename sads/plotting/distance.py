@@ -1,7 +1,9 @@
 """Distance-distribution histograms for kernel representations.
 
 Panel titles use compact kernel formulas (e.g. ``$(p_i·q_j)^5$``)
-rather than verbose key=value strings.
+rather than verbose key=value strings. The formatting helpers live in
+:mod:`sads.plotting._panel` and are shared with
+:mod:`sads.plotting.heatmap`.
 
 * :func:`plot_distance_histogram`     — single histogram (kernel step).
 * :func:`plot_distance_histogram_kde` — same plus a Gaussian-KDE overlay
@@ -19,138 +21,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sads.distance import pairwise_distances, D_MAX
+from sads.plotting._panel import panel_title
 from sads.plotting.style import set_mpl_style, apply_axis_style, savefig, palette
-
-
-# ------------------------------------------------------------------
-# Compact kernel-formula panel titles
-# ------------------------------------------------------------------
-
-# Keys that belong to the kernel specification (everything else is a
-# SOAP sweep parameter and shown separately).
-_KERNEL_KEYS = frozenset({
-    "method", "metric", "alpha", "gamma", "degree", "coef0", "threshold",
-})
-
-
-def _kernel_formula(params: dict) -> str:
-    """Return a compact LaTeX formula for the local-environment kernel metric.
-
-    :returns: LaTeX string describing the local-environment kernel metric.
-    :rtype: str
-
-    Examples::
-
-        linear                         -> ``$p_i \\cdot q_j$``
-        polynomial (gamma=1, c0=0, d=5) -> ``$(p_i \\cdot q_j)^5$``
-        polynomial (gamma=2, c0=1, d=3) -> ``$(2\\,p_i \\cdot q_j + 1)^3$``
-        rbf (gamma=5)                  -> ``$\\exp(-5\\,\\|p_i - q_j\\|^2)$``
-    """
-    metric = params.get("metric", "linear")
-    dot = r"p_i \!\cdot\! q_j"
-
-    if metric == "linear":
-        return rf"${dot}$"
-
-    if metric == "polynomial":
-        d = params.get("degree", 2)
-        g = params.get("gamma", 1.0)
-        c = params.get("coef0", 0.0)
-
-        inner = dot if g == 1.0 else rf"{g:g}\,{dot}"
-        if c != 0.0:
-            inner = rf"{inner} + {c:g}"
-
-        if d == 1:
-            return rf"${inner}$"
-        return rf"$({inner})^{{{d}}}$"
-
-    if metric == "rbf":
-        g = params.get("gamma", 1.0)
-        return rf"$\exp(-{g:g}\,\|p_i - q_j\|^2)$"
-
-    # Fallback for unknown metrics
-    return metric
-
-
-def _method_label(params: dict) -> str:
-    """Compact label for the global kernel method (Avg / RE)."""
-    method = params.get("method", "average")
-    if method == "average":
-        return "Avg"
-    if method == "rematch":
-        a = params.get("alpha", 0.5)
-        return rf"RE $\alpha$={a:g}"
-    return method
-
-
-def _soap_label(params: dict) -> str:
-    """Format swept SOAP parameters (anything not in _KERNEL_KEYS)."""
-    parts = []
-    for k, v in params.items():
-        if k in _KERNEL_KEYS:
-            continue
-        val = f"{v:g}" if isinstance(v, float) else str(v)
-        if k == "sigma":
-            parts.append(rf"$\sigma$={val}")
-        elif k == "r_cut":
-            parts.append(rf"$r_{{\mathrm{{cut}}}}$={val}")
-        elif k == "n_max":
-            parts.append(rf"$n_{{\max}}$={val}")
-        elif k == "l_max":
-            parts.append(rf"$l_{{\max}}$={val}")
-        else:
-            parts.append(f"{k}={val}")
-    return ",  ".join(parts)
-
-
-def _panel_title(params: dict) -> str:
-    """Build a compact panel title from single- or multi-channel params.
-
-    Single-kernel params have bare keys (``method``, ``sigma``, …).
-    Multi-channel params are prefixed with ``channel_name__key``.
-    Both are detected automatically.
-    """
-    # ── Detect multi-channel (any key contains "__") ──────────────────
-    if any("__" in k for k in params):
-        return _multichannel_title(params)
-
-    # ── Single-kernel ─────────────────────────────────────────────────
-    parts = [_method_label(params), _kernel_formula(params)]
-    soap = _soap_label(params)
-    if soap:
-        parts.append(soap)
-    return ",  ".join(parts)
-
-
-def _multichannel_title(params: dict) -> str:
-    r"""Build a title for multi-channel (tensor-product) grid panels.
-
-    Groups ``channel__key`` entries by channel, builds a compact label
-    per channel, and stacks them on separate lines joined by
-    ``$\otimes$``.
-    """
-    from collections import OrderedDict
-
-    channels: OrderedDict[str, dict] = OrderedDict()
-    for full_key, val in params.items():
-        if "__" not in full_key:
-            continue
-        ch_name, key = full_key.split("__", 1)
-        channels.setdefault(ch_name, {})[key] = val
-
-    parts = []
-    for ch_name, ch_params in channels.items():
-        label = _method_label(ch_params)
-        formula = _kernel_formula(ch_params)
-        soap = _soap_label(ch_params)
-
-        ch_parts = [label, formula]
-        if soap:
-            ch_parts.append(soap)
-        parts.append(f"{ch_name}: {', '.join(ch_parts)}")
-
-    return r"$\otimes$".join(f"\n{p}\n" for p in parts).strip()
 
 
 # ------------------------------------------------------------------
@@ -162,9 +34,8 @@ def plot_distance_histogram(
     *,
     bins: int = 50,
     title: str = "",
-    label_map: dict[str, str] | None = None,
     out_path: Path | str | None = None,
-    figsize: tuple[float, float] = (5.5, 3.5),
+    figsize: tuple[float, float] = (6, 4),
     show: bool = False,
     dpi: int = 200,
 ) -> plt.Figure:
@@ -178,7 +49,6 @@ def plot_distance_histogram(
     :param K: Normalised kernel matrix, shape *(N, N)*.
     :param bins: Number of histogram bins.
     :param title: Figure title.
-    :param label_map: Optional column-name → display-label overrides.
     :param out_path: Save path.
     :param figsize: Figure size in inches.
     :param show: Call ``plt.show()``.
@@ -320,7 +190,6 @@ def plot_grid_histograms(
     kernels: list[dict],
     *,
     bins: int = 40,
-    label_map: dict[str, str] | None = None,
     figsize_per_panel: tuple[float, float] = (4.0, 3.0),
     title_fontsize: float | None = None,
     n_cols: int | None = None,
@@ -332,7 +201,8 @@ def plot_grid_histograms(
     r"""One histogram per grid-search combination.
 
     All panels share the fixed ``[0, √2]`` x-range so that distributions
-    are visually comparable across parameter combinations.
+    are visually comparable across parameter combinations. Panel titles
+    are built by :func:`sads.plotting._panel.panel_title`.
 
     :param kernels: List of dicts, each containing:
 
@@ -340,7 +210,6 @@ def plot_grid_histograms(
         * ``"params"`` — dict of parameter-name → value for the title.
 
     :param bins: Bins per histogram.
-    :param label_map: Column-name → display-label overrides.
     :param figsize_per_panel: Per-panel size ``(width, height)`` in inches.
     :param title_fontsize: Font size for panel titles.  *None* = auto
         (7.5 for single-kernel, 6 for multi-channel).
@@ -350,6 +219,7 @@ def plot_grid_histograms(
     :param show: Call ``plt.show()``.
     :param dpi: Resolution when saving.
     :returns: The figure.
+    :raises ValueError: If *kernels* is empty.
     """
     set_mpl_style()
     n = len(kernels)
@@ -387,7 +257,7 @@ def plot_grid_histograms(
             edgecolor="white", linewidth=0.3,
         )
 
-        title = _panel_title(entry["params"])
+        title = panel_title(entry["params"])
         n_lines = title.count("\n") + 1
         fontsize = title_fontsize or (6 if n_lines > 1 else 7.5)
         pad = 4 + 8 * (n_lines - 1)

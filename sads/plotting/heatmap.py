@@ -44,15 +44,14 @@ from sads.plotting.style import set_mpl_style, savefig, cmap as project_cmap
 # panel titles use the same symbols (no trailing units; units belong
 # in colorbar labels, not in axis labels for parameter sweeps).
 DEFAULT_LABEL_MAP: dict[str, str] = {
-    "n_max":          r"$n_{\max}$",
-    "l_max":          r"$l_{\max}$",
-    "r_cut":          r"$r_{\mathrm{cut}}$",
-    "sigma":          r"$\sigma$",
-    "alpha":          r"$\alpha$",
-    "gamma":          r"$\gamma$",
-    "degree":         r"$d$",
-    "cka":            "CKA",
-    "dissimilarity":  r"$1 - K$",
+    "n_max":  r"$n_{\max}$",
+    "l_max":  r"$l_{\max}$",
+    "r_cut":  r"$r_{\mathrm{cut}}$",
+    "sigma":  r"$\sigma$",
+    "alpha":  r"$\alpha$",
+    "gamma":  r"$\gamma$",
+    "degree": r"$d$",
+    "cka":    "CKA",
 }
 
 # Preferred order when two numeric columns have the same number of
@@ -61,12 +60,18 @@ _AXIS_PRIORITY: list[str] = [
     "r_cut", "sigma", "n_max", "l_max", "gamma", "alpha",
 ]
 
+
 def _pretty_label(col: str, label_map: Mapping[str, str] | None) -> str:
     """Return a display label for a parameter column.
 
     Strips any ``channel_name__`` prefix that multi-channel sweeps
     insert, so axis labels read ``$r_{\\mathrm{cut}}$`` regardless of
     which channel the swept knob belongs to.
+
+    :param col: Column name, optionally ``channel_name__knob``.
+    :param label_map: Optional overrides taking precedence over
+        :data:`DEFAULT_LABEL_MAP`.
+    :returns: Display label for the column.
     """
     if label_map and col in label_map:
         return label_map[col]
@@ -79,16 +84,26 @@ def _pretty_label(col: str, label_map: Mapping[str, str] | None) -> str:
 # ------------------------------------------------------------------
 
 def _is_numeric_column(series: pd.Series) -> bool:
-    """True if all non-null values in *series* are numeric.
+    """True if *series* holds numeric values.
+
+    Uses :func:`pandas.api.types.is_numeric_dtype` first (the fast,
+    canonical check), then falls back to coercing object-dtype columns
+    with :func:`pandas.to_numeric`: sweep results assembled via
+    ``pd.concat`` of mixed rows can land as object dtype even when every
+    value is a clean float, and a per-value ``isinstance`` test is
+    fragile in that case.
 
     :param series: Column to inspect.
-    :returns: ``True`` when every non-null entry is an integer or
-        floating-point scalar.
+    :returns: ``True`` when the column is numeric (natively or after
+        coercion of all non-null values).
     """
-    vals = series.dropna().unique()
-    if len(vals) == 0:
+    vals = series.dropna()
+    if vals.empty:
         return False
-    return all(isinstance(v, (int, float, np.integer, np.floating)) for v in vals)
+    if pd.api.types.is_numeric_dtype(vals):
+        return True
+    coerced = pd.to_numeric(vals, errors="coerce")
+    return bool(coerced.notna().all())
 
 
 def _is_derived_column(
@@ -202,6 +217,12 @@ def infer_heatmap_layout(
 # ------------------------------------------------------------------
 
 def _apply_heatmap_ticks(ax, x_vals, y_vals) -> None:
+    """Place fixed major ticks at every cell centre with ``%g`` labels.
+
+    :param ax: Target axes.
+    :param x_vals: Ordered x-axis cell values.
+    :param y_vals: Ordered y-axis cell values.
+    """
     x_pos = np.arange(len(x_vals))
     y_pos = np.arange(len(y_vals))
 
@@ -247,52 +268,35 @@ def plot_grid_heatmaps(
     """Plot sweep results as heatmaps.
 
     :param df: Sweep output from :func:`~sads.sweep.engine.run_sweep` or a CSV.
-    :type df: pd.DataFrame
-    :param value: Column name used for the cell color, typically the score.
-    :type value: str
+    :param value: Column name used for the cell colour, typically the score.
     :param x: Column for the horizontal axis. If ``None``,
-        :func:`infer_heatmap_layout` selects a numeric column with high variation.
-    :type x: str | None
+        :func:`infer_heatmap_layout` selects a numeric column with high
+        variation.
     :param y: Column for the vertical axis. If ``None``,
-        :func:`infer_heatmap_layout` selects a numeric column with high variation.
-    :type y: str | None
-    :param group_by: Columns whose unique combinations define subplots. If ``None``,
-        these are inferred automatically from categorical columns and remaining
-        varying numeric columns.
-    :type group_by: list[str] | None
+        :func:`infer_heatmap_layout` selects a numeric column with high
+        variation.
+    :param group_by: Columns whose unique combinations define subplots. If
+        ``None``, these are inferred automatically from categorical columns and
+        remaining varying numeric columns.
     :param out_path: Path where the figure should be saved.
-    :type out_path: Path | str | None
     :param annotate: Whether to print numeric values inside each cell.
-    :type annotate: bool
     :param fmt: Format specification used for cell annotations.
-    :type fmt: str
-    :param vmin: Lower bound for the color scale. If omitted, it is inferred from
+    :param vmin: Lower bound for the colour scale. If omitted, inferred from
         ``value``.
-    :type vmin: float | None
-    :param vmax: Upper bound for the color scale. If omitted, it is inferred from
+    :param vmax: Upper bound for the colour scale. If omitted, inferred from
         ``value``.
-    :type vmax: float | None
-    :param cmap: Colormap to use. If ``None``, the project default gradient is used.
-    :type cmap: str | matplotlib.colors.Colormap | None
+    :param cmap: Colormap to use. If ``None``, the project default gradient is
+        used.
     :param label_map: Mapping from column names to display labels.
-    :type label_map: dict[str, str] | None
     :param colorbar_label: Label for the colorbar.
-    :type colorbar_label: str | None
     :param figsize_per_panel: Size in inches for each subplot as
         ``(width, height)``.
-    :type figsize_per_panel: tuple[float, float]
     :param n_cols: Maximum number of subplot columns. Defaults to
         ``min(n_panels, 4)``.
-    :type n_cols: int | None
     :param suptitle: Figure-level title.
-    :type suptitle: str | None
     :param show: Whether to call :func:`matplotlib.pyplot.show`.
-    :type show: bool
     :param dpi: Resolution used when saving the figure.
-    :type dpi: int
-
     :returns: The created matplotlib figure.
-    :rtype: matplotlib.figure.Figure
     """
     set_mpl_style()
 
@@ -430,6 +434,18 @@ def plot_grid_heatmaps(
 # ------------------------------------------------------------------
 
 def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
+    """Write each cell's value at its centre, ``"N/A"`` for NaN cells.
+
+    Text colour flips between white and black on the cell luminance so
+    annotations stay legible across the colormap.
+
+    :param ax: Target axes.
+    :param grid: 2-D array of cell values (NaN where a combination is
+        missing).
+    :param norm: Normalizer mapping values to ``[0, 1]`` for the
+        luminance test.
+    :param fmt: Format spec applied to each numeric value.
+    """
     n_y, n_x = grid.shape
     for yi in range(n_y):
         for xi in range(n_x):
@@ -441,4 +457,3 @@ def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
                 luminance = norm(val)
                 ax.text(xi, yi, f"{val:{fmt}}", ha="center", va="center",
                         fontsize=7, color="white" if luminance < 0.45 else "black")
-
