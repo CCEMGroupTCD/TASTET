@@ -13,10 +13,10 @@ Use-case-specific internals:
 
 Database schema convention (shared across all use cases)
 --------------------------------------------------------
-Every row carries a single identifier ``conformer_id`` — sequential,
+Every row carries a single identifier ``configuration_id`` — sequential,
 1-based, gap-free. Used by every downstream step (SOAP, kernel, kPCA,
 selection). The position of a conformer in the kernel matrix is
-``conformer_id - 1`` and is computed wherever needed; it is not
+``configuration_id - 1`` and is computed wherever needed; it is not
 stored as a separate column.
 """
 
@@ -57,7 +57,7 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
     * ``int``   → randomly subsample that many for speed.
 
     :returns: ``(atoms_list, meta)`` with the structures and their
-        metadata. ``meta`` always contains ``conformer_id``.
+        metadata. ``meta`` always contains ``configuration_id``.
     """
     if not cfg.db_path().exists():
         sys.exit(
@@ -207,13 +207,13 @@ def get_flexible_indices(
 def _build_database() -> None:
     """Parse the SDF file and write all conformers to .db + .csv.
 
-    Each row carries one identifier — ``conformer_id`` — assigned in
+    Each row carries one identifier — ``configuration_id`` — assigned in
     SDF reading order, 1-based and gap-free. No filename or
     record-position column is preserved; the database is the source of
     truth from this point onward.
     """
     atoms_list = load_conformers()
-    records = [{"conformer_id": i + 1} for i in range(len(atoms_list))]
+    records = [{"configuration_id": i + 1} for i in range(len(atoms_list))]
     build_database(cfg.db_path(), cfg.csv_path(), atoms_list, records)
 
 

@@ -8,6 +8,14 @@ Shared interface (imported by run.py):
 Use-case-specific internals:
     _build_database()           — reads trajectories, computes formation energies
     update_formation_energies() — recomputes when reference values change
+
+Database schema convention (shared across all use cases)
+--------------------------------------------------------
+Every row carries a single identifier ``configuration_id`` — sequential,
+1-based, gap-free. The position of a structure in the kernel matrix is
+``configuration_id - 1``. On subsampling, the subset is re-keyed
+``1..N`` so the invariant holds for the working database too;
+provenance back to the source run is preserved via ``run_name``.
 """
 
 from __future__ import annotations
@@ -57,11 +65,16 @@ def resolve_channel_soap(channel: dict) -> dict:
 # ── Use-case-specific: database construction ──────────────────────────
 
 def _build_database() -> None:
-    """Read trajectories, compute formation energies, write .db + .csv."""
+    """Read trajectories, compute formation energies, write .db + .csv.
+
+    Each structure receives a single identifier ``configuration_id``,
+    assigned in read order across ``TARGET_RUNS`` — 1-based and
+    gap-free. ``run_name`` is retained for provenance.
+    """
     print(f"Building database from {len(cfg.TARGET_RUNS)} runs ...")
     atoms_list: list[Atoms] = []
     records: list[dict] = []
-    gid: int = 0
+    cid: int = 0
 
     for run_name in cfg.TARGET_RUNS:
         traj = cfg.RUNS_DIR / run_name / "structures.traj"
@@ -76,14 +89,14 @@ def _build_database() -> None:
         for atoms in images:
             n_cu = atoms.get_chemical_symbols().count("Cu")
             e_form = atoms.get_potential_energy() - e_surf - n_cu * cfg.E_CU_BULK
+            cid += 1
             atoms_list.append(atoms)
             records.append(dict(
-                structure_id=gid,
+                configuration_id=cid,
                 run_name=run_name,
                 n_cu=n_cu,
                 formation_energy=e_form,
             ))
-            gid += 1
 
     build_database(cfg.db_path(), cfg.csv_path(), atoms_list, records)
 
@@ -103,7 +116,7 @@ def update_formation_energies() -> None:
         )
         db.update(row.id, formation_energy=e_form)
         records.append(dict(
-            structure_id=row.structure_id,
+            configuration_id=row.configuration_id,
             run_name=row.run_name,
             n_cu=row.n_cu,
             formation_energy=e_form,
@@ -124,7 +137,7 @@ def _subsample_indices_energy(
     :param n_samples: Number of samples to draw.
     :param seed: Random seed.
     :param num_bins: Number of histogram bins for density estimation.
-    :returns: Array of selected indices.
+    :returns: Array of selected indices into ``eform_arr``.
     """
     rng = np.random.default_rng(seed)
 
@@ -141,7 +154,15 @@ def _subsample_indices_energy(
 
 
 def subsample() -> None:
-    """Create a subset database from the master via energy-based sampling."""
+    """Create a subset database from the master via energy-based sampling.
+
+    The subset is re-keyed with a fresh ``configuration_id = 1..N`` so
+    the 1-based, gap-free invariant holds for the working database (the
+    pipeline indexes the kernel matrix as ``configuration_id - 1``).
+    The sampling is fully determined by ``cfg.SEED`` / ``cfg.NUM_BINS``
+    and the master energies, so the same settings reproduce the same
+    structures; ``run_name`` is retained for provenance.
+    """
     if not cfg.master_db_path().exists():
         sys.exit(f"Master database not found: {cfg.master_db_path()}")
     if cfg.db_path().exists():
@@ -158,7 +179,11 @@ def subsample() -> None:
     )
 
     subset_atoms = [master_atoms[i] for i in idx]
-    subset_records = master_meta.iloc[idx].to_dict("records")
+    subset_meta = master_meta.iloc[idx].reset_index(drop=True).copy()
+    # Re-key 1-based, gap-free for the working DB (kernel row position
+    # is configuration_id - 1).  run_name keeps the link to the source.
+    subset_meta["configuration_id"] = np.arange(1, len(subset_meta) + 1)
+    subset_records = subset_meta.to_dict("records")
 
     build_database(cfg.db_path(), cfg.csv_path(), subset_atoms, subset_records)
 

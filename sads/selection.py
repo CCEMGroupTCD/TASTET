@@ -158,6 +158,107 @@ def select_structures(
     selected = meta.iloc[global_idx].copy().reset_index(drop=True)
     return selected, idx_pool, global_idx
 
+def _select_fps_seeded(
+    K: np.ndarray,
+    candidate_idx: np.ndarray,
+    preselected_idx: np.ndarray,
+    k: int,
+) -> np.ndarray:
+    """Farthest-point sampling warm-started from an existing selection.
+
+    Picks *k* new points from ``candidate_idx`` that are maximally far
+    from the union of ``preselected_idx`` and the points chosen so far.
+    Distances are kernel-induced,
+    :math:`d^2(i, j) = K_{ii} + K_{jj} - 2 K_{ij}`. There is no random
+    initial point — the preselected set provides the warm start, so the
+    result is deterministic. Operates on global indices into the full
+    kernel ``K``.
+
+    :param K: Full kernel matrix, shape (N, N).
+    :param candidate_idx: Global indices eligible for selection.
+    :param preselected_idx: Global indices already chosen (the seed set).
+    :param k: Number of new points to select.
+    :returns: Global indices of the *k* newly selected points, in
+        selection order.
+    """
+    diag = np.diag(K)
+    cand = np.asarray(candidate_idx, dtype=int)
+
+    # Min squared distance from each candidate to the seed set.
+    min_d2 = np.full(cand.shape, np.inf)
+    for p in np.asarray(preselected_idx, dtype=int):
+        d2 = diag[cand] + diag[p] - 2.0 * K[cand, p]
+        np.minimum(min_d2, np.maximum(d2, 0.0), out=min_d2)
+
+    chosen: list[int] = []
+    for _ in range(k):
+        best_local = int(np.argmax(min_d2))
+        chosen.append(int(cand[best_local]))
+        min_d2[best_local] = -1.0  # never pick this candidate again
+        d2_new = diag[cand] + diag[cand[best_local]] - 2.0 * K[cand, cand[best_local]]
+        np.minimum(min_d2, np.maximum(d2_new, 0.0), out=min_d2)
+
+    return np.array(chosen, dtype=int)
+
+
+def select_additional(
+    K: np.ndarray,
+    meta: pd.DataFrame,
+    *,
+    preselected_indices: np.ndarray | list,
+    k: int,
+    energy_max: float | None = None,
+    energy_col: str | None = None,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """Extend an existing selection by *k* more via seeded FPS.
+
+    Picks *k* new structures that are maximally diverse with respect to
+    the already-selected ``preselected_indices`` (and each other), using
+    farthest-point sampling warm-started from that set. The preselected
+    structures are excluded from the candidate pool and are not returned.
+    Use this for incremental DFT campaigns: feed back the structures
+    already computed and draw the next batch from what remains.
+
+    :param K: Full kernel matrix, shape (N, N); row order matches *meta*.
+    :param meta: Metadata DataFrame.
+    :param preselected_indices: Row positions (into *meta* / kernel rows)
+        of the already-selected structures. For the universal schema
+        these are ``configuration_id - 1``.
+    :param k: Number of additional structures to pick.
+    :param energy_max: Optional upper bound for an energy filter applied
+        to the candidate pool. *None* = no filtering.
+    :param energy_col: Column name for the energy filter. Required when
+        *energy_max* is set.
+    :returns: ``(selected, idx_pool, selected_indices)`` — same shape as
+        :func:`select_structures`, for the newly chosen rows. ``selected``
+        is in selection order with the index reset; ``selected_indices``
+        are the kernel-row positions of the new picks.
+    """
+    preselected = np.asarray(preselected_indices, dtype=int)
+
+    if energy_max is not None:
+        if not energy_col:
+            raise ValueError("energy_col is required when energy_max is set.")
+        if energy_col not in meta.columns:
+            raise KeyError(f"Column {energy_col!r} not found in metadata.")
+        mask = meta[energy_col].values <= energy_max
+        print(f"  Energy filter: {int(mask.sum())}/{len(meta)} structures "
+              f"with {energy_col} ≤ {energy_max}")
+    else:
+        mask = np.ones(len(meta), dtype=bool)
+
+    mask[preselected] = False  # never re-pick the seed set
+    idx_pool = np.where(mask)[0]
+
+    if len(idx_pool) < k:
+        print(f"  Warning: pool ({len(idx_pool)}) < k ({k}).  Selecting all.")
+        k = len(idx_pool)
+
+    print(f"  Incremental FPS: k={k}, pool={len(idx_pool)}, "
+          f"seeded by {len(preselected)} preselected")
+    global_idx = _select_fps_seeded(K, idx_pool, preselected, k)
+    selected = meta.iloc[global_idx].reset_index(drop=True)
+    return selected, idx_pool, global_idx
 
 # ── Plotting ──────────────────────────────────────────────────────────
 

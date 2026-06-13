@@ -51,4 +51,5 @@ examples/**
 !examples/rh_complex/config.py
 !examples/rh_complex/run.py
 !examples/rh_complex/prepare.py
+!examples/rh_complex/round2.py
 !examples/rh_complex/*.sdf

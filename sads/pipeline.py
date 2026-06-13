@@ -71,7 +71,7 @@ def kernel_step(cfg, ids: np.ndarray | list) -> None:
     :param cfg: Config module (needs ``soap_path``, ``kernel_path``,
         ``kernel_meta_path``, ``KERNEL_PARAMS``). Optionally reads
         ``KERNEL_KDE_BANDWIDTH`` (default ``0.02``).
-    :param ids: Structure identifiers (e.g. ``conformer_id`` values),
+    :param ids: Structure identifiers (e.g. ``configuration_id`` values),
         one per row of the kernel.  Used for the pairwise CSV.
     """
     if not cfg.soap_path().exists():
@@ -165,6 +165,9 @@ def kpca_step(
     *,
     color_values: np.ndarray | None = None,
     color_label: str = "",
+    categorical: bool = False,
+    marker_values: np.ndarray | None = None,
+    marker_label: str = "",
     show: bool | None = None,
 ) -> None:
     """Run kPCA, save projections + metadata, and plot in 2-D and 3-D.
@@ -178,8 +181,16 @@ def kpca_step(
     :param cfg: Config module (needs ``kernel_path``, ``kpca_csv_path``,
         ``kpca_meta_path``, ``plot_path``).
     :param meta: Metadata DataFrame (row order must match the kernel).
-    :param color_values: Optional per-point scalar for the colorbar.
-    :param color_label: Colorbar label.
+    :param color_values: Optional per-point value for coloring.
+    :param color_label: Colorbar label (continuous) or legend title
+        (categorical).
+    :param categorical: Treat *color_values* as discrete classes
+        (palette + legend) instead of a continuous gradient. Forwarded
+        to :func:`~sads.plotting.plot_kpca` / ``plot_kpca_3d``.
+    :param marker_values: Optional second categorical channel mapped to
+        marker shape (requires *categorical*). Forwarded to the
+        plotters; enables the dual color+marker legend mode.
+    :param marker_label: Title for the marker legend.
     :param show: Whether to display the plots interactively. ``None``
         (default) falls back to ``cfg.SHOW``.
     """
@@ -211,6 +222,9 @@ def kpca_step(
         result,
         color_values=color_values,
         color_label=color_label,
+        categorical=categorical,
+        marker_values=marker_values,
+        marker_label=marker_label,
         save=plot_2d,
         show=show,
     )
@@ -221,6 +235,9 @@ def kpca_step(
         result,
         color_values=color_values,
         color_label=color_label,
+        categorical=categorical,
+        marker_values=marker_values,
+        marker_label=marker_label,
         save=plot_3d,
         show=show,
     )
@@ -422,7 +439,7 @@ def select_step(
     """Select representative structures via diverse sampling.
 
     Writes ``selected_structures.csv`` with the metadata of the chosen
-    rows (``conformer_id`` is the only id column — there is no
+    rows (``configuration_id`` is the only id column — there is no
     redundant ``original_id`` or ``array_index``), and one ``.xyz``
     file per selected structure under ``selection_dir/xyz/``. The
     filename template is ``cfg.SELECTION_XYZ_TEMPLATE`` if defined,
@@ -484,8 +501,8 @@ def select_step(
     selected.to_csv(cfg.selection_csv_path(), index=False)
     print(f"  Selected     -> {cfg.selection_csv_path()}")
 
-    cids = [int(c) for c in selected["conformer_id"]]
-    print(f"  conformer_ids ({len(cids)}, in selection order): {cids}")
+    cids = [int(c) for c in selected["configuration_id"]]
+    print(f"  configuration_ids ({len(cids)}, in selection order): {cids}")
 
     # ── Write one .xyz per selected conformer ───────────────────────
     template = getattr(cfg, "SELECTION_XYZ_TEMPLATE", "conformer_{id}.xyz")
@@ -493,8 +510,8 @@ def select_step(
     xyz_dir = cfg.selection_dir() / "xyz"
     xyz_dir.mkdir(parents=True, exist_ok=True)
     for cid in cids:
-        # conformer_id is 1-based and gap-free; row position in the
-        # database (and the kernel matrix) is conformer_id - 1.
+        # configuration_id is 1-based and gap-free; row position in the
+        # database (and the kernel matrix) is configuration_id - 1.
         atoms = atoms_list[cid - 1]
         ase_write(str(xyz_dir / template.format(id=cid)), atoms)
     print(f"  XYZ files    -> {xyz_dir}/  ({len(cids)} files, template '{template}')")

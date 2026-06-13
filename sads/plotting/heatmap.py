@@ -170,17 +170,43 @@ def infer_heatmap_layout(
     # parameters). They can't be a meaningful axis: each combination
     # of the other knobs picks exactly one value, so the heatmap
     # would have one filled cell per row of the panel grid.
-    other_varying = (
-        [c for c, _ in numeric_varying] + categorical_varying
-    )
-    independent_numeric: list[tuple[str, int]] = []
-    derived_numeric: list[str] = []
-    for col, n_unique in numeric_varying:
-        predictors = [c for c in other_varying if c != col]
-        if _is_derived_column(df, col, predictors):
-            derived_numeric.append(col)
-        else:
-            independent_numeric.append((col, n_unique))
+    #
+    # A column must only be judged derived from *independent* knobs,
+    # not from other derived columns. The key pitfall is a column that
+    # is unique-per-row (cardinality == number of rows) — e.g. a
+    # median-heuristic gamma that takes a distinct value for every
+    # (r_cut, sigma) pair. Such a column can never be a legitimate
+    # predictor, because grouping by it always yields singleton groups,
+    # which would trivially make every other column look determined.
+    # So we seed the derived set with row-unique numeric columns first,
+    # then iterate: each remaining column is judged only against
+    # predictors not already known to be derived. Removing predictors
+    # only ever makes fewer columns look derived, so the iteration
+    # converges to a stable set.
+    n_rows_total = len(df)
+    numeric_cols = [c for c, _ in numeric_varying]
+    derived_set: set[str] = {
+        c for c, n_unique in numeric_varying if n_unique >= n_rows_total
+    }
+    changed = True
+    while changed:
+        changed = False
+        for col in numeric_cols:
+            if col in derived_set:
+                continue
+            predictors = [
+                c for c in (numeric_cols + categorical_varying)
+                if c != col and c not in derived_set
+            ]
+            if _is_derived_column(df, col, predictors):
+                derived_set.add(col)
+                changed = True
+
+    independent_numeric = [
+        (col, n_unique) for col, n_unique in numeric_varying
+        if col not in derived_set
+    ]
+    derived_numeric = [c for c in numeric_cols if c in derived_set]
 
     if derived_numeric:
         print(f"  Heatmap layout: dropping derived columns {derived_numeric}")

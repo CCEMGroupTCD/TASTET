@@ -11,14 +11,11 @@ Usage::
 
 from __future__ import annotations
 
-import json
 import sys
 import warnings
-from itertools import product as iproduct
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from sads.soap_utils import compute_soap
 from sads.kernel import compute_kernel, resolve_kernel_params, combine_kernels
@@ -30,9 +27,10 @@ from sads.io import (
 from sads.distance import pairwise_dataframe, pairwise_distances
 from sads.kpca import fit_kpca
 from sads.pipeline import soap_step, kernel_step, kpca_step, grid_search_step, select_step
+from sads.sweep.multichannel import grid_search_multichannel_step
 from sads.plotting import plot_kpca
 from sads.plotting.distance import (
-    plot_distance_histogram, plot_distance_histogram_kde, plot_grid_histograms,
+    plot_distance_histogram, plot_distance_histogram_kde,
 )
 
 import config as cfg
@@ -110,14 +108,23 @@ def _db() -> None:
 def _grid_search() -> None:
     """Sweep SOAP × kernel parameters.
 
-    Dispatches to :func:`_multichannel_grid_search` when
-    ``USE_TENSOR_PRODUCT`` is set; otherwise runs the single-kernel
-    grid via :func:`sads.pipeline.grid_search_step`. No scorer is
-    plugged in (``target=None``), so only the distance-distribution
-    outputs are produced.
+    Dispatches by ``USE_TENSOR_PRODUCT``: multi-channel sweep via
+    :func:`sads.sweep.multichannel.grid_search_multichannel_step`, or
+    single-kernel sweep via :func:`sads.pipeline.grid_search_step`.
+    No scorer is plugged in (``target=None``), so only the
+    distance-distribution outputs are produced.
     """
+    structures, meta = load_grid_search_structures()
+    ids = meta["configuration_id"].values
+
     if getattr(cfg, "USE_TENSOR_PRODUCT", False):
-        _multichannel_grid_search()
+        grid_search_multichannel_step(
+            cfg=cfg,
+            atoms_list=structures,
+            ids=ids,
+            channels=cfg.KERNEL_CHANNELS,
+            resolve_channel_soap=resolve_channel_soap,
+        )
         return
 
     # ── Single-kernel grid search ────────────────────────────────────
@@ -133,7 +140,6 @@ def _grid_search() -> None:
             f"or KERNEL_GRID."
         )
 
-    structures, meta = load_grid_search_structures()
     centers = resolve_soap_centers(
         center_atoms=cfg.FIXED_SOAP_KW.get("center_atoms"),
     )
@@ -144,182 +150,11 @@ def _grid_search() -> None:
     grid_search_step(
         cfg=cfg,
         atoms_list=structures,
-        ids=meta["conformer_id"].values,
+        ids=ids,
         scorer=None,
         target=None,
         fixed_soap_kw=fixed_kw,
     )
-
-
-def _multichannel_grid_search() -> None:
-    """Sweep per-channel SOAP × kernel grids, combine, and analyse distances.
-
-    Each channel can optionally define ``soap_grid`` (dict) and
-    ``kernel_grid`` (list of dicts).  The total sweep is the cartesian
-    product across all channels, subject to ``MAX_GRID_COMBINATIONS``.
-    Combined kernels are formed via ``KERNEL_COMBINE`` and (when
-    applicable) ``KERNEL_WEIGHTS``.
-    """
-    # ── Expand per-channel combinations ──────────────────────────────
-    channel_options: list[list[tuple]] = []
-
-    for ch in cfg.KERNEL_CHANNELS:
-        name = ch["name"]
-        base_soap = resolve_channel_soap(ch)
-        base_kernel = dict(ch["kernel"])
-
-        soap_grid = ch.get("soap_grid", {})
-        kernel_grid = ch.get("kernel_grid", [base_kernel])
-
-        soap_keys = list(soap_grid.keys())
-        soap_combos = [
-            dict(zip(soap_keys, vals))
-            for vals in iproduct(*(soap_grid[k] for k in soap_keys))
-        ] if soap_keys else [{}]
-
-        options = []
-        for s_params in soap_combos:
-            merged_soap = {**base_soap, **s_params}
-            for k_params in kernel_grid:
-                # Record swept params with channel prefix
-                swept: dict = {}
-                for k, v in s_params.items():
-                    swept[f"{name}__{k}"] = v
-                for k, v in k_params.items():
-                    swept[f"{name}__{k}"] = v
-                options.append((name, merged_soap, dict(k_params), swept))
-        channel_options.append(options)
-
-    # ── Check total combinations ─────────────────────────────────────
-    all_combos = list(iproduct(*channel_options))
-    n_total = len(all_combos)
-    max_combos = getattr(cfg, "MAX_GRID_COMBINATIONS", 500)
-    if n_total > max_combos:
-        per_ch = " × ".join(
-            f"{ch['name']}({len(opts)})"
-            for ch, opts in zip(cfg.KERNEL_CHANNELS, channel_options)
-        )
-        sys.exit(
-            f"Multi-channel grid search has {n_total} combinations "
-            f"({per_ch}), exceeding MAX_GRID_COMBINATIONS={max_combos}.  "
-            f"Reduce per-channel soap_grid / kernel_grid entries."
-        )
-
-    out_dir = cfg.grid_search_dir()
-    config_path = out_dir / "config.json"
-    if config_path.exists():
-        print(f"Grid search already exists -> {out_dir}")
-        print("  Change channel grids in config.py to run a new sweep.")
-        return
-
-    structures, meta = load_grid_search_structures()
-    ids = meta["conformer_id"].values
-
-    print(f"Multi-channel grid search: {n_total} combinations ...")
-
-    # ── Sweep ────────────────────────────────────────────────────────
-    soap_cache: dict[str, list] = {}
-    kernel_entries: list[dict] = []
-    pair_frames: list[pd.DataFrame] = []
-    mode = getattr(cfg, "KERNEL_COMBINE", "product")
-    weights = getattr(cfg, "KERNEL_WEIGHTS", None)
-
-    for combo in tqdm(all_combos, desc="Multi-channel sweep"):
-        channel_Ks: list[np.ndarray] = []
-        params: dict = {}
-
-        for ch_name, soap_kw, kern_kw, swept in combo:
-            cache_key = json.dumps(
-                {ch_name: soap_kw}, sort_keys=True, default=str,
-            )
-            if cache_key not in soap_cache:
-                soap_cache[cache_key] = compute_soap(structures, **soap_kw)
-            soap_list = soap_cache[cache_key]
-
-            resolved = resolve_kernel_params(soap_list, kern_kw, verbose=False)
-            K_ch = compute_kernel(soap_list, **resolved, verbose=False)
-            channel_Ks.append(K_ch)
-
-            # Update swept with resolved values (e.g. gamma="median" → float)
-            for k, v in resolved.items():
-                swept[f"{ch_name}__{k}"] = v
-            params.update(swept)
-
-        K = combine_kernels(channel_Ks, mode=mode, weights=weights)
-        kernel_entries.append({"K": K, "params": params})
-
-        df_pairs = pairwise_dataframe(K, ids)
-        for col, val in params.items():
-            if isinstance(val, np.generic):
-                val = val.item()
-            elif isinstance(val, (np.ndarray, list, tuple)):
-                val = val[0] if len(val) == 1 else str(val)
-            df_pairs[col] = val
-        pair_frames.append(df_pairs)
-
-    # ── Plot distance distributions ──────────────────────────────────
-    hist_path = out_dir / "distance_distributions.png"
-    plot_grid_histograms(
-        kernel_entries,
-        out_path=hist_path,
-        suptitle="Distance distributions — multi-channel grid search",
-        show=getattr(cfg, "SHOW", False),
-    )
-    print(f"  Dist plots   -> {hist_path}")
-
-    # ── Pairwise distances CSV ───────────────────────────────────────
-    combined = pd.concat(pair_frames, ignore_index=True)
-    csv_path = out_dir / "pairwise_distances.csv"
-    combined.to_csv(csv_path, index=False)
-    print(f"  Pairwise CSV -> {csv_path}  ({len(combined)} rows)")
-
-    # ── Distance summary CSV ─────────────────────────────────────────
-    summary_rows: list[dict] = []
-    for entry in kernel_entries:
-        d = pairwise_distances(entry["K"])
-        row = dict(entry["params"])
-        row["n_pairs"] = len(d)
-        if len(d) > 0:
-            row["mean"] = float(np.mean(d))
-            row["median"] = float(np.median(d))
-            row["std"] = float(np.std(d))
-            row["min"] = float(np.min(d))
-            row["max"] = float(np.max(d))
-            row["range"] = float(np.max(d) - np.min(d))
-        summary_rows.append(row)
-    summary_path = out_dir / "distance_summary.csv"
-    pd.DataFrame(summary_rows).to_csv(summary_path, index=False)
-    print(f"  Dist summary -> {summary_path}  ({len(summary_rows)} combinations)")
-
-    # ── Config snapshot ──────────────────────────────────────────────
-    # Resolve species that were actually used (auto-inferred when not
-    # set explicitly — important to record for reproducibility).
-    all_species = sorted({
-        s for a in structures for s in a.get_chemical_symbols()
-    })
-    snapshot_channels = []
-    for ch in cfg.KERNEL_CHANNELS:
-        soap_with_species = dict(ch["soap"])
-        soap_with_species.setdefault("species", all_species)
-        snapshot_channels.append({
-            "name": ch["name"],
-            "centers_from_smarts": ch.get("centers_from_smarts", False),
-            "soap": soap_with_species,
-            "kernel": ch["kernel"],
-            "soap_grid": ch.get("soap_grid", {}),
-            "kernel_grid": ch.get("kernel_grid", [ch["kernel"]]),
-        })
-    snapshot = {
-        "use_tensor_product": True,
-        "combine_mode": mode,
-        "weights": weights,
-        "channels": snapshot_channels,
-        "random_seed": cfg.SEED,
-        "number_subsamples": cfg.GRID_SEARCH_N_SAMPLES,
-    }
-    with open(config_path, "w") as f:
-        json.dump(snapshot, f, indent=2, default=str)
-    print(f"  Config       -> {config_path}")
 
 
 def _soap() -> None:
@@ -371,7 +206,7 @@ def _kernel() -> None:
     already exist.
     """
     atoms, meta = load_atoms_and_meta(cfg.db_path())
-    ids = meta["conformer_id"].values
+    ids = meta["configuration_id"].values
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
         kernel_step(cfg, ids=ids)

@@ -1,7 +1,7 @@
 """Configuration for the Cu-cluster-on-surface analysis.
 
 General settings (top) — present in every use case.
-Use-case-specific settings (middle) — unique to Pablo's system.
+Use-case-specific settings (middle) — unique to this Cu-cluster system.
 Path helpers (bottom) — reusable output tree.
 """
 
@@ -26,10 +26,10 @@ SEED: int = 42
 SHOW: bool = False
 
 # ── Tensor product toggle ────────────────────────────────────────────
-# True  → combine multiple kernel channels defined in KERNEL_CHANNELS.
+# True  → combine the kernel channels defined in KERNEL_CHANNELS.
 # False → single-kernel mode using SOAP_PARAMS + KERNEL_PARAMS.
-# Grid search operates in whichever mode is active.
-# Both modes are subject to MAX_GRID_COMBINATIONS.
+# Grid search operates in whichever mode is active; both are subject to
+# MAX_GRID_COMBINATIONS.
 USE_TENSOR_PRODUCT: bool = False
 
 
@@ -46,7 +46,9 @@ SOAP_PARAMS: dict = dict(
 )
 
 KERNEL_PARAMS: dict = dict(
-    method="average", metric="linear", gamma=None, alpha=0.5,
+    method="average", metric="linear",
+    # gamma=5.0,                  # add for rbf / polynomial metrics
+    # alpha=0.5,                  # add for the rematch method
 )
 
 
@@ -59,13 +61,15 @@ KERNEL_PARAMS: dict = dict(
 # When USE_TENSOR_PRODUCT = True:
 #   sweeps per-channel soap_grid × kernel_grid across channels and
 #   combines results with KERNEL_COMBINE.
-
 MAX_GRID_COMBINATIONS: int = 500
 
 # ── Single-kernel grid search (USE_TENSOR_PRODUCT = False) ───────────
+# periodic must match SOAP_PARAMS (this is a periodic slab): a
+# non-periodic grid search would tune descriptors that do not match
+# the production ones.
 FIXED_SOAP_KW: dict = dict(
     center_atoms=["Cu"], average="off", normalize=False,
-    n_jobs=-1, periodic=False,
+    n_jobs=-1, periodic=True,
 )
 
 SOAP_GRID: dict = dict(
@@ -85,6 +89,8 @@ KERNEL_GRID = [
     dict(method="rematch", metric="polynomial", degree=2, gamma=1.0, coef0=0.0, alpha=0.1),
 ]
 
+# CKA scorer target kernel for the (supervised) grid search.  The target
+# values are the formation energies, pulled from the DB meta in run.py.
 CKA_TARGET_KERNEL: str = "linear"
 
 
@@ -92,8 +98,6 @@ CKA_TARGET_KERNEL: str = "linear"
 #  MULTI-CHANNEL KERNEL  (used when USE_TENSOR_PRODUCT = True)
 # ─────────────────────────────────────────────────────────────────────
 # Each channel defines its own SOAP centres/species and kernel type.
-# Channels are always defined here — USE_TENSOR_PRODUCT controls
-# whether the pipeline reads them or falls back to single-kernel mode.
 #
 # centers_from_smarts:
 #   True  → resolve SOAP centres from FLEXIBLE_SMARTS atom indices.
@@ -121,7 +125,7 @@ KERNEL_CHANNELS: list[dict] = [
         #     dict(method="average", metric="rbf", gamma=5.0),
         # ],
     },
-    # Example: add a second channel for Cu–surface interaction
+    # Example: add a second channel for the Cu–surface interaction.
     # {
     #     "name": "Cu_surface",
     #     "centers_from_smarts": False,
@@ -133,13 +137,20 @@ KERNEL_CHANNELS: list[dict] = [
     #     "kernel": dict(method="rematch", metric="rbf", gamma=5.0, alpha=0.1),
     # },
 ]
-KERNEL_COMBINE: str = "product"  # "product" (Hadamard) or "sum" (mean)
+KERNEL_COMBINE: str = "product"  # "product" (Hadamard), "sum" (mean), or "weighted_sum"
+# KERNEL_WEIGHTS apply only when KERNEL_COMBINE == "weighted_sum";
+# they are ignored for "product" and "sum".
+KERNEL_WEIGHTS: list[float] | None = None
 
 
 # ── Structure selection ──────────────────────────────────────────────
-SELECTION_ENERGY_MAX: float = 15.0
+SELECTION_ENERGY_MAX: float = 15.0   # filter on formation_energy before selecting
 SELECTION_K: int = 30
 SELECTION_METHOD: str = "fps"
+SELECTION_XYZ_TEMPLATE: str = "structure_{id}.xyz"
+
+# ── KDE bandwidth for the kernel-step distance plot ─────────────────
+KERNEL_KDE_BANDWIDTH: float = 0.02
 
 
 # =====================================================================
@@ -147,6 +158,10 @@ SELECTION_METHOD: str = "fps"
 # =====================================================================
 
 # ── Subsampling ──────────────────────────────────────────────────────
+# To build an energy-balanced subset, set ANALYSIS_NAME to a new name
+# (so db_path() differs from master_db_path()) and run the 'subsample'
+# step.  With ANALYSIS_NAME == MASTER_ANALYSIS_NAME the working DB *is*
+# the master and 'subsample' is a no-op.
 MASTER_ANALYSIS_NAME: str = "new_all_1L"
 N_SUBSAMPLE: int = 50
 NUM_BINS: int = 5
@@ -193,16 +208,18 @@ def surface_energy(dir_name: str) -> float:
 # =====================================================================
 
 def _use_channels() -> bool:
-    """True when multi-channel kernel mode is active."""
-    return bool(globals().get("USE_TENSOR_PRODUCT", False))
+    """Whether multi-channel kernel mode is active.
+
+    :returns: ``True`` when ``USE_TENSOR_PRODUCT`` is set *and*
+        ``KERNEL_CHANNELS`` is non-empty.
+    """
+    return bool(globals().get("USE_TENSOR_PRODUCT", False)) and bool(KERNEL_CHANNELS)
 
 
 def _centers_tag() -> str:
-    """Short string that uniquely identifies the active centre selection.
+    """Short identifier for the active SOAP centre selection.
 
-    center_atoms=["Cu"]        → "c-Cu"
-    center_atoms=["Cu","Zn"]   → "c-Cu-Zn"
-    Neither                    → "c-all"
+    :returns: Tag like ``"c-Cu"``, ``"c-Cu-Zn"``, or ``"c-all"``.
     """
     ca = SOAP_PARAMS.get("center_atoms")
     if ca:
@@ -211,37 +228,54 @@ def _centers_tag() -> str:
 
 
 def soap_tag() -> str:
+    """SOAP-parameters tag for the (single-kernel) soap output directory."""
     p = SOAP_PARAMS
     base = f"rcut{p['r_cut']}_sig{p['sigma']}_n{p['n_max']}_l{p['l_max']}"
     return f"{base}_{_centers_tag()}"
 
 
 def kernel_tag() -> str:
+    """Kernel-parameters tag for the (single-kernel) kernel output directory.
+
+    Uses ``.get()`` for ``gamma`` / ``alpha`` so that ``KERNEL_PARAMS``
+    can omit them safely.
+
+    :returns: Compact ``method_metric[_gG][_aA]`` string.
+    """
     p = KERNEL_PARAMS
     base = f"{p['method']}_{p['metric']}"
-    if p["gamma"] is not None:
+    if p.get("gamma") is not None:
         base += f"_g{p['gamma']}"
-    if p["method"] == "rematch":
-        base += f"_a{p['alpha']}"
+    if p.get("method") == "rematch":
+        base += f"_a{p.get('alpha')}"
     return base
 
 
 def combined_kernel_tag() -> str:
-    """Hash-based tag for multi-channel combined kernels."""
+    """Hash-based tag for multi-channel combined kernels.
+
+    :returns: ``f"{combine}_{8-char-hash}"``.
+    """
     import hashlib, json
     blob = json.dumps(
-        {"channels": KERNEL_CHANNELS, "combine": KERNEL_COMBINE},
+        {"channels": KERNEL_CHANNELS, "combine": KERNEL_COMBINE,
+         "weights": globals().get("KERNEL_WEIGHTS")},
         sort_keys=True, default=str,
     )
     return f"{KERNEL_COMBINE}_{hashlib.sha256(blob.encode()).hexdigest()[:8]}"
 
 
 def grid_search_tag() -> str:
+    """Hash-based tag identifying a unique grid search configuration.
+
+    :returns: 8-character hex hash.
+    """
     import hashlib, json
     if _use_channels():
         blob = json.dumps(
             {"channels": KERNEL_CHANNELS,
              "combine": KERNEL_COMBINE,
+             "weights": globals().get("KERNEL_WEIGHTS"),
              "scorer": CKA_TARGET_KERNEL,
              "random_seed": SEED},
             sort_keys=True, default=str,
@@ -256,15 +290,81 @@ def grid_search_tag() -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:8]
 
 
+# ── Per-channel hash helpers (multi-channel mode) ────────────────────
+
+def channel_soap_tag(ch: dict) -> str:
+    """Hash-keyed tag for a channel's SOAP cache.
+
+    Includes a human-readable prefix (``rcut_sig_n_l``) followed by a
+    hash that captures the full SOAP parameter set so that two
+    configurations sharing the prefix but differing in, say, ``species``
+    still produce distinct paths.
+
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: A directory name like ``rcut4.0_sig0.1_n8_l4_aabbccdd``.
+    """
+    import hashlib, json
+    p = ch["soap"]
+    base = (
+        f"rcut{p.get('r_cut', '?')}"
+        f"_sig{p.get('sigma', '?')}"
+        f"_n{p.get('n_max', '?')}"
+        f"_l{p.get('l_max', '?')}"
+    )
+    blob = {
+        "soap": ch["soap"],
+        "centers_from_smarts": ch.get("centers_from_smarts", False),
+    }
+    if ch.get("centers_from_smarts"):
+        blob["flexible_smarts"] = globals().get("FLEXIBLE_SMARTS")
+        blob["flexible_include_h"] = globals().get("FLEXIBLE_INCLUDE_H", True)
+    h = hashlib.sha256(
+        json.dumps(blob, sort_keys=True, default=str).encode()
+    ).hexdigest()[:8]
+    return f"{base}_{h}"
+
+
+def channel_kernel_tag(ch: dict) -> str:
+    """Hash-keyed tag for a channel's kernel cache.
+
+    Hashes ``ch["kernel"]`` as written in config; resolution of
+    ``gamma="median"`` depends on the SOAP, which is handled by the
+    nested-directory layout (the kernel directory lives inside the
+    corresponding SOAP directory).
+
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: A directory name like ``average_linear_eeff0011``.
+    """
+    import hashlib, json
+    k = ch["kernel"]
+    method = k.get("method", "?")
+    metric = k.get("metric", "?")
+    base = f"{method}_{metric}"
+    h = hashlib.sha256(
+        json.dumps(k, sort_keys=True, default=str).encode()
+    ).hexdigest()[:8]
+    return f"{base}_{h}"
+
+
 def analysis_dir() -> Path:
+    """Return the analysis output directory (creates it if missing).
+
+    :returns: ``OUTPUT_ROOT / ANALYSIS_NAME``.
+    """
     d = OUTPUT_ROOT / ANALYSIS_NAME
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def soap_dir() -> Path:
+    """Return the SOAP cache directory for the current SOAP_PARAMS."""
     d = analysis_dir() / soap_tag(); d.mkdir(exist_ok=True); return d
 
 def kernel_dir() -> Path:
+    """Return the kernel cache directory.
+
+    For single-kernel mode it lives under ``soap_dir() / kernel_tag()``;
+    for multi-channel mode under ``analysis_dir() / combined_kernel_tag()``.
+    """
     if _use_channels():
         d = analysis_dir() / combined_kernel_tag()
     else:
@@ -272,20 +372,55 @@ def kernel_dir() -> Path:
     d.mkdir(exist_ok=True); return d
 
 def channel_dir(name: str) -> Path:
+    """Return the base directory for a channel name.
+
+    :param name: Channel name (must match ``KERNEL_CHANNELS[i]["name"]``).
+    """
     d = analysis_dir() / "channels" / name
     d.mkdir(parents=True, exist_ok=True); return d
 
-def channel_soap_path(name: str) -> Path:
-    return channel_dir(name) / "soap.npz"
+def channel_soap_dir(ch: dict) -> Path:
+    """Hash-keyed SOAP cache directory for a channel.
 
-def channel_kernel_path(name: str) -> Path:
-    return channel_dir(name) / "kernel.npz"
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: ``channels/<name>/<soap_tag>``.
+    """
+    d = channel_dir(ch["name"]) / channel_soap_tag(ch)
+    d.mkdir(parents=True, exist_ok=True); return d
+
+def channel_kernel_dir(ch: dict) -> Path:
+    """Hash-keyed kernel cache directory for a channel.
+
+    Nested inside :func:`channel_soap_dir` so one SOAP file serves every
+    kernel variant computed from it.
+
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: ``channels/<name>/<soap_tag>/<kernel_tag>``.
+    """
+    d = channel_soap_dir(ch) / channel_kernel_tag(ch)
+    d.mkdir(parents=True, exist_ok=True); return d
+
+def channel_soap_path(ch: dict) -> Path:
+    """Cached SOAP descriptors for a channel.
+
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    """
+    return channel_soap_dir(ch) / "soap.npz"
+
+def channel_kernel_path(ch: dict) -> Path:
+    """Cached kernel matrix for a channel.
+
+    :param ch: One entry from ``KERNEL_CHANNELS``.
+    """
+    return channel_kernel_dir(ch) / "kernel.npz"
 
 def grid_search_dir() -> Path:
+    """Return the grid-search output directory for the current settings."""
     d = analysis_dir() / "grid_search" / grid_search_tag()
     d.mkdir(parents=True, exist_ok=True); return d
 
 def selection_dir() -> Path:
+    """Return the selection output directory under the active kernel dir."""
     d = kernel_dir() / "selection"; d.mkdir(exist_ok=True); return d
 
 def db_path() -> Path:            return analysis_dir() / "structures.db"

@@ -17,7 +17,7 @@ USE_CASE_DIR: Path = Path(__file__).resolve().parent
 OUTPUT_ROOT: Path = USE_CASE_DIR / "output"
 
 # ── Analysis naming ──────────────────────────────────────────────────
-ANALYSIS_NAME: str = "test"
+ANALYSIS_NAME: str = "round2_cka"
 
 # ── Seed ─────────────────────────────────────────────────────────────
 SEED: int = 22
@@ -28,7 +28,7 @@ SHOW: bool = False
 # ── Tensor product toggle ────────────────────────────────────────────
 # True  → combine multiple kernel channels defined in KERNEL_CHANNELS.
 # False → single-kernel mode using SOAP_PARAMS + KERNEL_PARAMS.
-USE_TENSOR_PRODUCT: bool = False
+USE_TENSOR_PRODUCT: bool = True
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -68,6 +68,8 @@ KERNEL_GRID = [
     dict(method="rematch", metric="rbf", gamma="median", alpha=0.1),
 ]
 
+# CKA target-kernel type for round2.py's supervised grid search.
+CKA_TARGET_KERNEL: str = "linear"   # "linear" or "rbf"
 
 # ─────────────────────────────────────────────────────────────────────
 #  MULTI-CHANNEL KERNEL  (used when USE_TENSOR_PRODUCT = True)
@@ -82,14 +84,16 @@ KERNEL_CHANNELS: list[dict] = [
         "name": "core_kernel",
         "centers_from_smarts": False,
         "soap": dict(
-            r_cut=5.0,
+            r_cut=2.0,
             centers=[10, 55, 52, 0, 1],
             species=_SHARED_SPECIES,
             sigma=0.1,
             n_max=8, l_max=8,
             average="off", normalize=True, n_jobs=-1, periodic=False,
         ),
-        "kernel": dict(method="average", metric="rbf", gamma="median"),
+        "kernel": dict(method="average", metric="linear",
+                       # gamma="median"
+                       ),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
             dict(method="average", metric="linear"),
@@ -100,14 +104,17 @@ KERNEL_CHANNELS: list[dict] = [
         "name": "periphery_kernel",
         "centers_from_smarts": False,
         "soap": dict(
-            r_cut=2.0,
+            r_cut=4.0,
             centers=[7, 30, 36, 14, 23, 9, 17, 19],
             species=_SHARED_SPECIES,
             sigma=0.5,
             n_max=8, l_max=8,
             average="off", normalize=True, n_jobs=-1, periodic=False,
         ),
-        "kernel": dict(method="rematch", metric="rbf", gamma="median", alpha=0.5),
+        "kernel": dict(method="rematch", metric="linear",
+                       # gamma="median",
+                       alpha=0.5,
+                       ),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
             dict(method="rematch", metric="linear", alpha=0.5),
@@ -115,6 +122,7 @@ KERNEL_CHANNELS: list[dict] = [
         ],
     },
 ]
+
 KERNEL_COMBINE: str = "product"
 # KERNEL_WEIGHTS apply only when KERNEL_COMBINE == "weighted_sum";
 # they are ignored for "product" and "sum".
@@ -233,6 +241,7 @@ def grid_search_tag() -> str:
              "weights": globals().get("KERNEL_WEIGHTS"),
              "flexible_smarts": flex_smarts,
              "flexible_include_h": flex_include_h,
+             "scorer": globals().get("CKA_TARGET_KERNEL"),
              "random_seed": SEED,
              "number_subsamples": GRID_SEARCH_N_SAMPLES},
             sort_keys=True, default=str,
@@ -243,6 +252,7 @@ def grid_search_tag() -> str:
              "fixed_soap_kw": FIXED_SOAP_KW,
              "flexible_smarts": flex_smarts,
              "flexible_include_h": flex_include_h,
+             "scorer": globals().get("CKA_TARGET_KERNEL"),
              "centers": _centers_tag(), "random_seed": SEED,
              "number_subsamples": GRID_SEARCH_N_SAMPLES},
             sort_keys=True, default=str,

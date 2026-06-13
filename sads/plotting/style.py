@@ -11,17 +11,30 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator, FuncFormatter
 from matplotlib.markers import MarkerStyle
 
-palette = {
+palette: dict[str, str] = {
     "dark orange": "#D55E00",
-    "orange":  "#E69F00",
-    "yellow":  "#F0E442",
-    "green":   "#019E74",
-    "blue":    "#57B4E9",
-    "dark blue": "#0072B2",
-    "magenta": "#CC79A7",
-    "pink": "#EE6677",
-    "black":   "#000000",
+    "orange":      "#E69F00",
+    "yellow":      "#F0E442",
+    "green":       "#019E74",
+    "blue":        "#57B4E9",
+    "dark blue":   "#0072B2",
+    "magenta":     "#CC79A7",
+    "black":       "#000000",
 }
+"""Colour-blind-safe palette (Wong, 2011)."""
+
+palette_2: dict[str, str] = {
+    "light green":  "#98DF8A",
+    "light red":    "#FF9896",
+    "grey":         "#7F7F7F",
+    "olive":        "#BCBD22",
+    "light cyan":   "#9EDAE5",
+    "light blue":   "#AEC7E8",
+    "light orange": "#FFBB78",
+    "teal":         "#17BECF",
+    "blue":         "#1F77B4",
+}
+"""Extended categorical palette for multi-class line plots."""
 
 cmap = LinearSegmentedColormap.from_list(
     "allowed_gradient",

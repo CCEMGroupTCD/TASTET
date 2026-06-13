@@ -12,14 +12,11 @@ Usage::
 
 from __future__ import annotations
 
-import json
 import sys
 import warnings
-from itertools import product as iproduct
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from sads.soap_utils import compute_soap
 from sads.kernel import compute_kernel, resolve_kernel_params, combine_kernels
@@ -31,8 +28,11 @@ from sads.io import (
 from sads.distance import pairwise_dataframe, pairwise_distances
 from sads.kpca import fit_kpca
 from sads.pipeline import soap_step, kernel_step, kpca_step, grid_search_step, select_step
+from sads.sweep.multichannel import grid_search_multichannel_step
 from sads.plotting import plot_kpca
-from sads.plotting.distance import plot_distance_histogram, plot_grid_histograms
+from sads.plotting.distance import (
+    plot_distance_histogram, plot_distance_histogram_kde,
+)
 from sads.metrics.cka import CKAScorer
 from sads.selection import plot_selection
 
@@ -51,19 +51,91 @@ warnings.filterwarnings("ignore", message="divide by zero encountered in scalar 
 warnings.filterwarnings("ignore", message="divide by zero encountered in divide", category=RuntimeWarning)
 
 
+# ── Combined-kernel output helper ────────────────────────────────────
+
+def _save_combined_distance_outputs(
+    cfg, K: np.ndarray, ids: np.ndarray | list,
+) -> None:
+    """Write the combined-kernel distance outputs, skipping existing files.
+
+    Mirror of :func:`sads.pipeline._save_distance_outputs` for the
+    multi-channel branch of :func:`_kernel`. Each output is regenerated
+    only when missing, so deleting one file (e.g.
+    ``kde_distance_distribution.png`` after bumping
+    ``KERNEL_KDE_BANDWIDTH``) and rerunning ``kernel`` regenerates just
+    that file without recomputing kernels.
+
+    :param cfg: Config module.
+    :param K: Combined kernel matrix.
+    :param ids: Structure identifiers, one per kernel row.
+    :returns: ``None``.
+    """
+    mode = getattr(cfg, "KERNEL_COMBINE", "product")
+
+    hist_path = cfg.kernel_dir() / "distance_distribution.png"
+    if not hist_path.exists():
+        plot_distance_histogram(
+            K,
+            title=f"Distance distribution — combined ({mode})",
+            out_path=hist_path,
+            show=getattr(cfg, "SHOW", False),
+        )
+        print(f"  Dist plot    -> {hist_path}")
+
+    kde_path = cfg.kernel_dir() / "kde_distance_distribution.png"
+    if not kde_path.exists():
+        plot_distance_histogram_kde(
+            K,
+            bandwidth=getattr(cfg, "KERNEL_KDE_BANDWIDTH", 0.02),
+            title=f"Distance distribution (KDE) — combined ({mode})",
+            out_path=kde_path,
+            show=getattr(cfg, "SHOW", False),
+        )
+        print(f"  KDE plot     -> {kde_path}")
+
+    csv_path = cfg.kernel_dir() / "pairwise_distances.csv"
+    if not csv_path.exists():
+        df = pairwise_dataframe(K, ids)
+        df.to_csv(csv_path, index=False)
+        print(f"  Pairwise CSV -> {csv_path}  ({len(df)} pairs)")
+
+
 # ── Use-case wrappers ─────────────────────────────────────────────────
 
 def _db() -> None:
+    """Build / update the master database from the configured runs."""
     ensure_database()
 
 
 def _subsample() -> None:
+    """Create an energy-balanced subset database from the master."""
     subsample()
 
 
 def _grid_search() -> None:
+    """Sweep SOAP × kernel parameters, scored by CKA against formation energy.
+
+    Dispatches by ``USE_TENSOR_PRODUCT``: multi-channel sweep via
+    :func:`sads.sweep.multichannel.grid_search_multichannel_step` or
+    single-kernel sweep via :func:`sads.pipeline.grid_search_step`,
+    both scored by :class:`~sads.metrics.cka.CKAScorer` against the
+    formation energies.
+    """
+    atoms, meta = load_atoms_and_meta(cfg.db_path())
+    ids = meta["configuration_id"].values
+    scorer = CKAScorer(target_kernel=cfg.CKA_TARGET_KERNEL)
+    target = meta["formation_energy"].values
+
     if getattr(cfg, "USE_TENSOR_PRODUCT", False):
-        _multichannel_grid_search()
+        grid_search_multichannel_step(
+            cfg=cfg,
+            atoms_list=atoms,
+            ids=ids,
+            channels=cfg.KERNEL_CHANNELS,
+            scorer=scorer,
+            target=target,
+            resolve_channel_soap=resolve_channel_soap,
+        )
         return
 
     # ── Single-kernel grid search ────────────────────────────────────
@@ -79,191 +151,35 @@ def _grid_search() -> None:
             f"or KERNEL_GRID."
         )
 
-    atoms, meta = load_atoms_and_meta(cfg.db_path())
     grid_search_step(
         cfg=cfg,
         atoms_list=atoms,
-        ids=meta["structure_id"].values,
-        scorer=CKAScorer(target_kernel=cfg.CKA_TARGET_KERNEL),
-        target=meta["formation_energy"].values,
+        ids=ids,
+        scorer=scorer,
+        target=target,
         fixed_soap_kw=cfg.FIXED_SOAP_KW,
     )
 
 
-def _multichannel_grid_search() -> None:
-    """Sweep per-channel SOAP × kernel grids, combine, and analyse distances.
-
-    Each channel can optionally define ``soap_grid`` (dict) and
-    ``kernel_grid`` (list of dicts).  The total sweep is the cartesian
-    product across all channels, subject to ``MAX_GRID_COMBINATIONS``.
-    """
-    # ── Expand per-channel combinations ──────────────────────────────
-    channel_options: list[list[tuple]] = []
-
-    for ch in cfg.KERNEL_CHANNELS:
-        name = ch["name"]
-        base_soap = resolve_channel_soap(ch)
-        base_kernel = dict(ch["kernel"])
-
-        soap_grid = ch.get("soap_grid", {})
-        kernel_grid = ch.get("kernel_grid", [base_kernel])
-
-        soap_keys = list(soap_grid.keys())
-        soap_combos = [
-            dict(zip(soap_keys, vals))
-            for vals in iproduct(*(soap_grid[k] for k in soap_keys))
-        ] if soap_keys else [{}]
-
-        options = []
-        for s_params in soap_combos:
-            merged_soap = {**base_soap, **s_params}
-            for k_params in kernel_grid:
-                swept: dict = {}
-                for k, v in s_params.items():
-                    swept[f"{name}__{k}"] = v
-                for k, v in k_params.items():
-                    swept[f"{name}__{k}"] = v
-                options.append((name, merged_soap, dict(k_params), swept))
-        channel_options.append(options)
-
-    # ── Check total combinations ─────────────────────────────────────
-    all_combos = list(iproduct(*channel_options))
-    n_total = len(all_combos)
-    max_combos = getattr(cfg, "MAX_GRID_COMBINATIONS", 500)
-    if n_total > max_combos:
-        per_ch = " × ".join(
-            f"{ch['name']}({len(opts)})"
-            for ch, opts in zip(cfg.KERNEL_CHANNELS, channel_options)
-        )
-        sys.exit(
-            f"Multi-channel grid search has {n_total} combinations "
-            f"({per_ch}), exceeding MAX_GRID_COMBINATIONS={max_combos}.  "
-            f"Reduce per-channel soap_grid / kernel_grid entries."
-        )
-
-    out_dir = cfg.grid_search_dir()
-    config_path = out_dir / "config.json"
-    if config_path.exists():
-        print(f"Grid search already exists -> {out_dir}")
-        print("  Change channel grids in config.py to run a new sweep.")
-        return
-
-    atoms, meta = load_atoms_and_meta(cfg.db_path())
-    ids = meta["structure_id"].values
-
-    print(f"Multi-channel grid search: {n_total} combinations ...")
-
-    # ── Sweep ────────────────────────────────────────────────────────
-    soap_cache: dict[str, list] = {}
-    kernel_entries: list[dict] = []
-    pair_frames: list[pd.DataFrame] = []
-    mode = getattr(cfg, "KERNEL_COMBINE", "product")
-
-    for combo in tqdm(all_combos, desc="Multi-channel sweep"):
-        channel_Ks: list[np.ndarray] = []
-        params: dict = {}
-
-        for ch_name, soap_kw, kern_kw, swept in combo:
-            cache_key = json.dumps(
-                {ch_name: soap_kw}, sort_keys=True, default=str,
-            )
-            if cache_key not in soap_cache:
-                soap_cache[cache_key] = compute_soap(atoms, **soap_kw)
-            soap_list = soap_cache[cache_key]
-
-            resolved = resolve_kernel_params(soap_list, kern_kw, verbose=False)
-            K_ch = compute_kernel(soap_list, **resolved, verbose=False)
-            channel_Ks.append(K_ch)
-
-            # Update swept with resolved values (e.g. gamma="median" → float)
-            for k, v in resolved.items():
-                swept[f"{ch_name}__{k}"] = v
-            params.update(swept)
-
-        K = combine_kernels(channel_Ks, mode=mode)
-        kernel_entries.append({"K": K, "params": params})
-
-        df_pairs = pairwise_dataframe(K, ids)
-        for col, val in params.items():
-            if isinstance(val, np.generic):
-                val = val.item()
-            elif isinstance(val, (np.ndarray, list, tuple)):
-                val = val[0] if len(val) == 1 else str(val)
-            df_pairs[col] = val
-        pair_frames.append(df_pairs)
-
-    # ── Plot distance distributions ──────────────────────────────────
-    hist_path = out_dir / "distance_distributions.png"
-    plot_grid_histograms(
-        kernel_entries,
-        out_path=hist_path,
-        suptitle="Distance distributions — multi-channel grid search",
-        show=getattr(cfg, "SHOW", False),
-    )
-    print(f"  Dist plots   -> {hist_path}")
-
-    # ── Pairwise distances CSV ───────────────────────────────────────
-    combined = pd.concat(pair_frames, ignore_index=True)
-    csv_path = out_dir / "pairwise_distances.csv"
-    combined.to_csv(csv_path, index=False)
-    print(f"  Pairwise CSV -> {csv_path}  ({len(combined)} rows)")
-
-    # ── Distance summary CSV ─────────────────────────────────────────
-    summary_rows: list[dict] = []
-    for entry in kernel_entries:
-        d = pairwise_distances(entry["K"])
-        row = dict(entry["params"])
-        row["n_pairs"] = len(d)
-        if len(d) > 0:
-            row["mean"] = float(np.mean(d))
-            row["median"] = float(np.median(d))
-            row["std"] = float(np.std(d))
-            row["min"] = float(np.min(d))
-            row["max"] = float(np.max(d))
-            row["range"] = float(np.max(d) - np.min(d))
-        summary_rows.append(row)
-    summary_path = out_dir / "distance_summary.csv"
-    pd.DataFrame(summary_rows).to_csv(summary_path, index=False)
-    print(f"  Dist summary -> {summary_path}  ({len(summary_rows)} combinations)")
-
-    # ── Config snapshot ──────────────────────────────────────────────
-    all_species = sorted({
-        s for a in atoms for s in a.get_chemical_symbols()
-    })
-    snapshot_channels = []
-    for ch in cfg.KERNEL_CHANNELS:
-        soap_with_species = dict(ch["soap"])
-        soap_with_species.setdefault("species", all_species)
-        snapshot_channels.append({
-            "name": ch["name"],
-            "centers_from_smarts": ch.get("centers_from_smarts", False),
-            "soap": soap_with_species,
-            "kernel": ch["kernel"],
-            "soap_grid": ch.get("soap_grid", {}),
-            "kernel_grid": ch.get("kernel_grid", [ch["kernel"]]),
-        })
-    snapshot = {
-        "use_tensor_product": True,
-        "combine_mode": mode,
-        "channels": snapshot_channels,
-        "random_seed": cfg.SEED,
-    }
-    with open(config_path, "w") as f:
-        json.dump(snapshot, f, indent=2, default=str)
-    print(f"  Config       -> {config_path}")
-
-
 def _soap() -> None:
+    """Compute and cache SOAP descriptors for the active database.
+
+    Single-kernel mode produces one descriptor set keyed by
+    :func:`config.soap_tag`. Multi-channel mode produces one per entry
+    in ``KERNEL_CHANNELS``, each cached under a hash-keyed path so that
+    changing a channel's SOAP parameters yields a new cache directory
+    rather than overwriting the old one.
+    """
     atoms, _ = load_atoms_and_meta(cfg.db_path())
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
         soap_step(cfg, atoms)
         return
 
-    # ── Multi-channel: one SOAP per channel ──────────────────────────
+    # ── Multi-channel: one SOAP per channel (hash-keyed path) ────────
     for ch in cfg.KERNEL_CHANNELS:
         name = ch["name"]
-        path = cfg.channel_soap_path(name)
+        path = cfg.channel_soap_path(ch)
         if path.exists():
             print(f"Loading SOAP [{name}] -> {path}")
             continue
@@ -276,18 +192,30 @@ def _soap() -> None:
 
 
 def _kernel() -> None:
+    """Build the kernel matrix from cached SOAP descriptors.
+
+    Single-kernel mode delegates to :func:`sads.pipeline.kernel_step`.
+    Multi-channel mode looks up each channel's SOAP and kernel at their
+    hash-keyed cache paths (a cache hit is a plain path-existence
+    check), combines them via ``KERNEL_COMBINE`` / ``KERNEL_WEIGHTS``,
+    and writes the combined-kernel distance outputs via
+    :func:`_save_combined_distance_outputs`.
+    """
     atoms, meta = load_atoms_and_meta(cfg.db_path())
+    ids = meta["configuration_id"].values
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
-        kernel_step(cfg, ids=meta["structure_id"].values)
+        kernel_step(cfg, ids=ids)
+        return
+
+    # ── Multi-channel: load cached combined kernel if available ──────
+    if cfg.kernel_path().exists():
+        print(f"Loading combined kernel -> {cfg.kernel_path()}")
+        K = load_kernel(cfg.kernel_path())
+        _save_combined_distance_outputs(cfg, K, ids)
         return
 
     # ── Multi-channel: one kernel per channel, then combine ──────────
-    if cfg.kernel_path().exists():
-        print(f"Loading combined kernel -> {cfg.kernel_path()}")
-        return
-
-    # Resolve species for metadata
     all_species = sorted({
         s for a in atoms for s in a.get_chemical_symbols()
     })
@@ -297,21 +225,33 @@ def _kernel() -> None:
 
     for ch in cfg.KERNEL_CHANNELS:
         name = ch["name"]
-        soap_p = cfg.channel_soap_path(name)
+        soap_p = cfg.channel_soap_path(ch)
         if not soap_p.exists():
             sys.exit(f"Missing SOAP [{name}]: {soap_p}.  Run 'soap' step first.")
 
         print(f"Loading SOAP [{name}] -> {soap_p}")
         soap_list = load_soap(soap_p)
 
-        k_params = resolve_kernel_params(soap_list, ch["kernel"])
-        K_ch = compute_kernel(soap_list, **k_params)
+        kernel_p = cfg.channel_kernel_path(ch)
+        meta_p = cfg.channel_kernel_dir(ch) / "kernel_meta.json"
 
-        save_kernel(K_ch, cfg.channel_kernel_path(name))
-        print(f"  Channel kernel [{name}] -> {cfg.channel_kernel_path(name)}")
-
-        with open(cfg.channel_dir(name) / "kernel_meta.json", "w") as f:
-            json.dump(k_params, f, indent=2)
+        if kernel_p.exists():
+            print(f"Loading kernel [{name}] -> {kernel_p}")
+            K_ch = load_kernel(kernel_p)
+            if meta_p.exists():
+                with open(meta_p) as f:
+                    k_params = json.load(f)
+            else:
+                k_params = resolve_kernel_params(soap_list, ch["kernel"])
+                with open(meta_p, "w") as f:
+                    json.dump(k_params, f, indent=2)
+        else:
+            k_params = resolve_kernel_params(soap_list, ch["kernel"])
+            K_ch = compute_kernel(soap_list, **k_params)
+            save_kernel(K_ch, kernel_p)
+            print(f"  Channel kernel [{name}] -> {kernel_p}")
+            with open(meta_p, "w") as f:
+                json.dump(k_params, f, indent=2)
 
         per_channel.append(K_ch)
         soap_with_species = dict(ch["soap"])
@@ -319,60 +259,55 @@ def _kernel() -> None:
         channel_meta.append({"name": name, "soap": soap_with_species, "kernel": k_params})
 
     mode = getattr(cfg, "KERNEL_COMBINE", "product")
-    K = combine_kernels(per_channel, mode=mode)
+    weights = getattr(cfg, "KERNEL_WEIGHTS", None)
+    K = combine_kernels(per_channel, mode=mode, weights=weights)
     save_kernel(K, cfg.kernel_path())
     print(f"  Combined kernel ({mode}) -> {cfg.kernel_path()}")
 
     with open(cfg.kernel_meta_path(), "w") as f:
-        json.dump({"combine_mode": mode, "channels": channel_meta}, f, indent=2, default=str)
+        json.dump(
+            {"combine_mode": mode, "weights": weights, "channels": channel_meta},
+            f, indent=2, default=str,
+        )
     print(f"  Kernel meta  -> {cfg.kernel_meta_path()}")
 
-    # ── Distance outputs ─────────────────────────────────────────────
-    ids = meta["structure_id"].values
-
-    hist_path = cfg.kernel_dir() / "distance_distribution.png"
-    plot_distance_histogram(
-        K,
-        title=f"Distance distribution — combined ({mode})",
-        out_path=hist_path,
-        show=getattr(cfg, "SHOW", False),
-    )
-    print(f"  Dist plot    -> {hist_path}")
-
-    csv_path = cfg.kernel_dir() / "pairwise_distances.csv"
-    df = pairwise_dataframe(K, ids)
-    df.to_csv(csv_path, index=False)
-    print(f"  Pairwise CSV -> {csv_path}  ({len(df)} pairs)")
+    _save_combined_distance_outputs(cfg, K, ids)
 
 
 def _kpca() -> None:
+    """Run kPCA, colouring projections by formation energy.
+
+    The combined kernel goes through :func:`sads.pipeline.kpca_step`
+    (2-D + 3-D). In multi-channel mode each per-channel kernel is also
+    projected (2-D), with outputs living inside the channel's hash-keyed
+    kernel directory.
+    """
     _, meta = load_atoms_and_meta(cfg.db_path())
+    color_values = meta["formation_energy"].values
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
         kpca_step(
             cfg, meta,
-            color_values=meta["formation_energy"].values,
+            color_values=color_values,
             color_label="Formation energy (eV)",
         )
         return
 
-    # ── Multi-channel: per-channel + combined kPCA ───────────────────
     show = getattr(cfg, "SHOW", False)
-    color_values = meta["formation_energy"].values
 
-    # Per-channel projections
+    # Per-channel projections (diagnostic; 2-D is enough here)
     for ch in cfg.KERNEL_CHANNELS:
         name = ch["name"]
-        k_path = cfg.channel_kernel_path(name)
+        k_path = cfg.channel_kernel_path(ch)
         if not k_path.exists():
             sys.exit(f"Missing channel kernel [{name}]: {k_path}.  Run 'kernel' step first.")
 
-        ch_dir = cfg.channel_dir(name)
-        plot_path = ch_dir / "kpca.png"
-        csv_path = ch_dir / "kpca_projections.csv"
+        ch_kdir = cfg.channel_kernel_dir(ch)
+        plot_path = ch_kdir / "kpca.png"
+        csv_path = ch_kdir / "kpca_projections.csv"
 
         if plot_path.exists() and csv_path.exists():
-            print(f"kPCA [{name}] already exists -> {ch_dir}")
+            print(f"kPCA [{name}] already exists -> {ch_kdir}")
             continue
 
         print(f"Running kPCA [{name}] ...")
@@ -385,7 +320,7 @@ def _kpca() -> None:
         proj_df.to_csv(csv_path, index=False)
 
         kpca_meta = {"explained_variance_pct": (result.explained_variance * 100).tolist()}
-        with open(ch_dir / "kpca_meta.json", "w") as f:
+        with open(ch_kdir / "kpca_meta.json", "w") as f:
             json.dump(kpca_meta, f, indent=2)
 
         plot_kpca(
@@ -397,7 +332,7 @@ def _kpca() -> None:
         print(f"  Plot         -> {plot_path}")
         print(f"  Projections  -> {csv_path}")
 
-    # Combined kernel
+    # Combined kernel — 2-D + 3-D + kpc3 in CSV via kpca_step
     kpca_step(
         cfg, meta,
         color_values=color_values,
@@ -406,6 +341,13 @@ def _kpca() -> None:
 
 
 def _select() -> None:
+    """Select representatives below the energy threshold, with full-view + POSCARs.
+
+    Applies the formation-energy filter, runs diverse selection
+    (``selection.png`` over the filtered pool, plus 2-D/3-D plots via
+    :func:`sads.pipeline.select_step`), then adds a full-view kPCA plot
+    with the selections highlighted and exports VASP POSCARs.
+    """
     # ── 1. Run selection (filtered pool + selection.png) ─────────────
     select_step(
         cfg,
@@ -426,10 +368,14 @@ def _select() -> None:
         with open(cfg.kpca_meta_path()) as f:
             ev_pct = json.load(f)["explained_variance_pct"]
 
+        # configuration_id is 1-based and gap-free; row position in the
+        # projections (and the kernel matrix) is configuration_id - 1.
+        selected_indices = selected["configuration_id"].values - 1
+
         plot_selection(
             proj_df,
             idx_pool=np.arange(len(proj_df)),
-            selected_indices=selected["array_index"].values,
+            selected_indices=selected_indices,
             explained_variance_pct=ev_pct,
             color_values=meta["formation_energy"].values,
             color_label="Formation energy (eV)",
@@ -446,9 +392,9 @@ def _select() -> None:
         poscar_dir.mkdir(parents=True, exist_ok=True)
 
         for _, row in selected.iterrows():
-            sid = int(row["structure_id"])
-            atoms = db.get(structure_id=sid).toatoms()
-            fname = f"POSCAR_{sid:05d}"
+            cid = int(row["configuration_id"])
+            atoms = db.get(configuration_id=cid).toatoms()
+            fname = f"POSCAR_{cid:05d}"
             write(str(poscar_dir / fname), atoms, format="vasp")
 
         print(f"  POSCARs      -> {poscar_dir}  ({len(selected)} files)")
@@ -476,11 +422,12 @@ Available steps:
                      and combines; otherwise single-kernel sweep with CKA.
                      Subject to MAX_GRID_COMBINATIONS.
   4.  soap           Compute SOAP.  When USE_TENSOR_PRODUCT = True,
-                     computes one SOAP per channel; otherwise single-config.
-  5.  kernel         Build kernel matrix + distance histogram + pairwise CSV.
-                     When USE_TENSOR_PRODUCT = True, computes per-channel
-                     kernels and combines them (product or sum).
-  6.  kpca           Run kPCA, save projections + plot.
+                     computes one SOAP per channel (hash-keyed path).
+  5.  kernel         Build kernel matrix + distance histogram + KDE overlay
+                     + pairwise CSV.  When USE_TENSOR_PRODUCT = True,
+                     computes per-channel kernels and combines them.
+  6.  kpca           Run kPCA (coloured by formation energy), save
+                     projections + 2-D and 3-D plots.
   7.  select         Select representative structures for DFT.
                      Produces selection.png (filtered pool),
                      selection_full.png (full kPCA), and POSCARs.
@@ -492,6 +439,7 @@ Available steps:
 
 
 def main() -> None:
+    """Dispatch each named CLI step in order."""
     requested = sys.argv[1:]
     if not requested or requested == ["help"] or requested == ["--help"]:
         print(USAGE)
