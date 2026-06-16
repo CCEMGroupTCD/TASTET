@@ -35,13 +35,21 @@ USE_TENSOR_PRODUCT: bool = True
 #  SINGLE-KERNEL MODE  (used when USE_TENSOR_PRODUCT = False)
 # ─────────────────────────────────────────────────────────────────────
 SOAP_PARAMS: dict = dict(
-    r_cut=4.0, sigma=0.1, n_max=8, l_max=8,
+    r_cut=4.0,
+    sigma=0.1,
+    n_max=8,
+    l_max=8,
     center_atoms=["Rh"],
-    average="off", normalize=True, n_jobs=-1, periodic=False,
+    average="off",
+    normalize=True,
+    n_jobs=-1,
+    periodic=False,
 )
 
 KERNEL_PARAMS: dict = dict(
-    method="average", metric="rbf", gamma="median",
+    method="average",
+    metric="rbf",
+    gamma="median",
 )
 
 
@@ -52,8 +60,12 @@ MAX_GRID_COMBINATIONS: int = 500
 GRID_SEARCH_N_SAMPLES: int | None = None
 
 FIXED_SOAP_KW: dict = dict(
-    n_max=8, l_max=8,
-    average="off", normalize=True, n_jobs=-1, periodic=False,
+    n_max=8,
+    l_max=8,
+    average="off",
+    normalize=True,
+    n_jobs=-1,
+    periodic=False,
 )
 
 SOAP_GRID: dict = dict(
@@ -69,7 +81,7 @@ KERNEL_GRID = [
 ]
 
 # CKA target-kernel type for round2.py's supervised grid search.
-CKA_TARGET_KERNEL: str = "linear"   # "linear" or "rbf"
+CKA_TARGET_KERNEL: str = "linear"  # "linear" or "rbf"
 
 # ─────────────────────────────────────────────────────────────────────
 #  MULTI-CHANNEL KERNEL  (used when USE_TENSOR_PRODUCT = True)
@@ -88,12 +100,18 @@ KERNEL_CHANNELS: list[dict] = [
             centers=[10, 55, 52, 0, 1],
             species=_SHARED_SPECIES,
             sigma=0.1,
-            n_max=8, l_max=8,
-            average="off", normalize=True, n_jobs=-1, periodic=False,
+            n_max=8,
+            l_max=8,
+            average="off",
+            normalize=True,
+            n_jobs=-1,
+            periodic=False,
         ),
-        "kernel": dict(method="average", metric="linear",
-                       # gamma="median"
-                       ),
+        "kernel": dict(
+            method="average",
+            metric="linear",
+            # gamma="median"
+        ),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
             dict(method="average", metric="linear"),
@@ -108,13 +126,19 @@ KERNEL_CHANNELS: list[dict] = [
             centers=[7, 30, 36, 14, 23, 9, 17, 19],
             species=_SHARED_SPECIES,
             sigma=0.5,
-            n_max=8, l_max=8,
-            average="off", normalize=True, n_jobs=-1, periodic=False,
+            n_max=8,
+            l_max=8,
+            average="off",
+            normalize=True,
+            n_jobs=-1,
+            periodic=False,
         ),
-        "kernel": dict(method="rematch", metric="linear",
-                       # gamma="median",
-                       alpha=0.5,
-                       ),
+        "kernel": dict(
+            method="rematch",
+            metric="linear",
+            # gamma="median",
+            alpha=0.5,
+        ),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
             dict(method="rematch", metric="linear", alpha=0.5),
@@ -152,6 +176,7 @@ FLEXIBLE_INCLUDE_H: bool = False
 #  PATH HELPERS
 # =====================================================================
 
+
 def _use_channels() -> bool:
     """Whether multi-channel kernel mode is active.
 
@@ -168,6 +193,7 @@ def _centers_tag() -> str:
         or ``"c-all"``.
     """
     import hashlib
+
     ca = SOAP_PARAMS.get("center_atoms")
     if ca:
         return "c-" + "-".join(sorted(ca))
@@ -216,12 +242,17 @@ def combined_kernel_tag() -> str:
     :returns: ``f"{combine}_{8-char-hash}"``.
     """
     import hashlib, json
+
     blob = json.dumps(
-        {"channels": KERNEL_CHANNELS, "combine": KERNEL_COMBINE,
-         "weights": globals().get("KERNEL_WEIGHTS"),
-         "flexible_smarts": globals().get("FLEXIBLE_SMARTS"),
-         "flexible_include_h": globals().get("FLEXIBLE_INCLUDE_H", True)},
-        sort_keys=True, default=str,
+        {
+            "channels": KERNEL_CHANNELS,
+            "combine": KERNEL_COMBINE,
+            "weights": globals().get("KERNEL_WEIGHTS"),
+            "flexible_smarts": globals().get("FLEXIBLE_SMARTS"),
+            "flexible_include_h": globals().get("FLEXIBLE_INCLUDE_H", True),
+        },
+        sort_keys=True,
+        default=str,
     )
     return f"{KERNEL_COMBINE}_{hashlib.sha256(blob.encode()).hexdigest()[:8]}"
 
@@ -232,35 +263,45 @@ def grid_search_tag() -> str:
     :returns: 8-character hex hash.
     """
     import hashlib, json
+
     flex_smarts = globals().get("FLEXIBLE_SMARTS")
     flex_include_h = globals().get("FLEXIBLE_INCLUDE_H", True)
     if _use_channels():
         blob = json.dumps(
-            {"channels": KERNEL_CHANNELS,
-             "combine": KERNEL_COMBINE,
-             "weights": globals().get("KERNEL_WEIGHTS"),
-             "flexible_smarts": flex_smarts,
-             "flexible_include_h": flex_include_h,
-             "scorer": globals().get("CKA_TARGET_KERNEL"),
-             "random_seed": SEED,
-             "number_subsamples": GRID_SEARCH_N_SAMPLES},
-            sort_keys=True, default=str,
+            {
+                "channels": KERNEL_CHANNELS,
+                "combine": KERNEL_COMBINE,
+                "weights": globals().get("KERNEL_WEIGHTS"),
+                "flexible_smarts": flex_smarts,
+                "flexible_include_h": flex_include_h,
+                "scorer": globals().get("CKA_TARGET_KERNEL"),
+                "random_seed": SEED,
+                "number_subsamples": GRID_SEARCH_N_SAMPLES,
+            },
+            sort_keys=True,
+            default=str,
         )
     else:
         blob = json.dumps(
-            {"soap_grid": SOAP_GRID, "kernel_grid": KERNEL_GRID,
-             "fixed_soap_kw": FIXED_SOAP_KW,
-             "flexible_smarts": flex_smarts,
-             "flexible_include_h": flex_include_h,
-             "scorer": globals().get("CKA_TARGET_KERNEL"),
-             "centers": _centers_tag(), "random_seed": SEED,
-             "number_subsamples": GRID_SEARCH_N_SAMPLES},
-            sort_keys=True, default=str,
+            {
+                "soap_grid": SOAP_GRID,
+                "kernel_grid": KERNEL_GRID,
+                "fixed_soap_kw": FIXED_SOAP_KW,
+                "flexible_smarts": flex_smarts,
+                "flexible_include_h": flex_include_h,
+                "scorer": globals().get("CKA_TARGET_KERNEL"),
+                "centers": _centers_tag(),
+                "random_seed": SEED,
+                "number_subsamples": GRID_SEARCH_N_SAMPLES,
+            },
+            sort_keys=True,
+            default=str,
         )
     return hashlib.sha256(blob.encode()).hexdigest()[:8]
 
 
 # ── Per-channel hash helpers (multi-channel mode) ────────────────────
+
 
 def channel_soap_tag(ch: dict) -> str:
     """Hash-keyed tag for a channel's SOAP cache.
@@ -274,6 +315,7 @@ def channel_soap_tag(ch: dict) -> str:
     :returns: A directory name like ``rcut2.0_sig0.5_n8_l8_aabbccdd``.
     """
     import hashlib, json
+
     p = ch["soap"]
     base = (
         f"rcut{p.get('r_cut', '?')}"
@@ -308,13 +350,14 @@ def channel_kernel_tag(ch: dict) -> str:
     :returns: A directory name like ``rematch_rbf_eeff0011``.
     """
     import hashlib, json
+
     k = ch["kernel"]
     method = k.get("method", "?")
     metric = k.get("metric", "?")
     base = f"{method}_{metric}"
-    h = hashlib.sha256(
-        json.dumps(k, sort_keys=True, default=str).encode()
-    ).hexdigest()[:8]
+    h = hashlib.sha256(json.dumps(k, sort_keys=True, default=str).encode()).hexdigest()[
+        :8
+    ]
     return f"{base}_{h}"
 
 
@@ -327,9 +370,16 @@ def analysis_dir() -> Path:
     d.mkdir(parents=True, exist_ok=True)
     return d
 
+
 def soap_dir() -> Path:
-    """Return the SOAP cache directory for the current SOAP_PARAMS."""
-    d = analysis_dir() / soap_tag(); d.mkdir(exist_ok=True); return d
+    """Return the SOAP cache directory for the current SOAP_PARAMS.
+
+    :returns: ``analysis_dir() / soap_tag()``.
+    """
+    d = analysis_dir() / soap_tag()
+    d.mkdir(exist_ok=True)
+    return d
+
 
 def kernel_dir() -> Path:
     """Return the kernel cache directory.
@@ -341,7 +391,9 @@ def kernel_dir() -> Path:
         d = analysis_dir() / combined_kernel_tag()
     else:
         d = soap_dir() / kernel_tag()
-    d.mkdir(exist_ok=True); return d
+    d.mkdir(exist_ok=True)
+    return d
+
 
 def channel_dir(name: str) -> Path:
     """Return the base directory for a channel name.
@@ -350,9 +402,12 @@ def channel_dir(name: str) -> Path:
     containing one or more kernel-hashed subdirectories.
 
     :param name: Channel name (must match ``KERNEL_CHANNELS[i]["name"]``).
+    :returns: ``analysis_dir() / "channels" / name``.
     """
     d = analysis_dir() / "channels" / name
-    d.mkdir(parents=True, exist_ok=True); return d
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
 
 def channel_soap_dir(ch: dict) -> Path:
     """Hash-keyed SOAP cache directory for a channel.
@@ -361,7 +416,9 @@ def channel_soap_dir(ch: dict) -> Path:
     :returns: ``channels/<name>/<soap_tag>``.
     """
     d = channel_dir(ch["name"]) / channel_soap_tag(ch)
-    d.mkdir(parents=True, exist_ok=True); return d
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
 
 def channel_kernel_dir(ch: dict) -> Path:
     """Hash-keyed kernel cache directory for a channel.
@@ -375,41 +432,108 @@ def channel_kernel_dir(ch: dict) -> Path:
     :returns: ``channels/<name>/<soap_tag>/<kernel_tag>``.
     """
     d = channel_soap_dir(ch) / channel_kernel_tag(ch)
-    d.mkdir(parents=True, exist_ok=True); return d
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
 
 def channel_soap_path(ch: dict) -> Path:
     """Cached SOAP descriptors for a channel.
 
     :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: ``channel_soap_dir(ch) / "soap.npz"``.
     """
     return channel_soap_dir(ch) / "soap.npz"
+
 
 def channel_kernel_path(ch: dict) -> Path:
     """Cached kernel matrix for a channel.
 
     :param ch: One entry from ``KERNEL_CHANNELS``.
+    :returns: ``channel_kernel_dir(ch) / "kernel.npz"``.
     """
     return channel_kernel_dir(ch) / "kernel.npz"
 
+
 def grid_search_dir() -> Path:
-    """Return the grid-search output directory for the current settings."""
+    """Return the grid-search output directory for the current settings.
+
+    :returns: ``analysis_dir() / "grid_search" / grid_search_tag()``.
+    """
     d = analysis_dir() / "grid_search" / grid_search_tag()
-    d.mkdir(parents=True, exist_ok=True); return d
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
 
 def selection_dir() -> Path:
-    """Return the selection output directory under the active kernel dir."""
-    d = kernel_dir() / "selection"; d.mkdir(exist_ok=True); return d
+    """Return the selection output directory under the active kernel dir.
 
-def db_path() -> Path:            return analysis_dir() / "structures.db"
-def csv_path() -> Path:           return analysis_dir() / "structures.csv"
-def soap_path() -> Path:          return soap_dir() / "soap.npz"
-def kernel_path() -> Path:        return kernel_dir() / "kernel.npz"
-def kernel_meta_path() -> Path:   return kernel_dir() / "kernel_meta.json"
-def plot_path() -> Path:          return kernel_dir() / "kpca.png"
-def kpca_csv_path() -> Path:      return kernel_dir() / "kpca_projections.csv"
-def kpca_meta_path() -> Path:     return kernel_dir() / "kpca_meta.json"
-def grid_search_csv() -> Path:    return grid_search_dir() / "results.csv"
-def grid_search_heatmap_path() -> Path: return grid_search_dir() / "heatmaps.png"
-def grid_search_config_path() -> Path:  return grid_search_dir() / "config.json"
-def selection_csv_path() -> Path:  return selection_dir() / "selected_structures.csv"
-def selection_plot_path() -> Path: return selection_dir() / "selection.png"
+    :returns: ``kernel_dir() / "selection"``.
+    """
+    d = kernel_dir() / "selection"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def db_path() -> Path:
+    """ASE database for the active analysis."""
+    return analysis_dir() / "structures.db"
+
+
+def csv_path() -> Path:
+    """CSV mirror of the active database."""
+    return analysis_dir() / "structures.csv"
+
+
+def soap_path() -> Path:
+    """Cached SOAP descriptors for the active parameters."""
+    return soap_dir() / "soap.npz"
+
+
+def kernel_path() -> Path:
+    """Cached kernel matrix for the active parameters."""
+    return kernel_dir() / "kernel.npz"
+
+
+def kernel_meta_path() -> Path:
+    """JSON file recording resolved kernel parameters."""
+    return kernel_dir() / "kernel_meta.json"
+
+
+def plot_path() -> Path:
+    """2-D kPCA plot."""
+    return kernel_dir() / "kpca.png"
+
+
+def kpca_csv_path() -> Path:
+    """CSV of kPCA projections (kpc1, kpc2, kpc3 per conformer)."""
+    return kernel_dir() / "kpca_projections.csv"
+
+
+def kpca_meta_path() -> Path:
+    """JSON file recording kPCA metadata (explained variance)."""
+    return kernel_dir() / "kpca_meta.json"
+
+
+def grid_search_csv() -> Path:
+    """Grid search results CSV."""
+    return grid_search_dir() / "results.csv"
+
+
+def grid_search_heatmap_path() -> Path:
+    """Grid search results heatmap."""
+    return grid_search_dir() / "heatmaps.png"
+
+
+def grid_search_config_path() -> Path:
+    """JSON file recording the grid search configuration."""
+    return grid_search_dir() / "config.json"
+
+
+def selection_csv_path() -> Path:
+    """CSV of selected conformer metadata."""
+    return selection_dir() / "selected_structures.csv"
+
+
+def selection_plot_path() -> Path:
+    """2-D kPCA plot with selected conformers highlighted."""
+    return selection_dir() / "selection.png"
