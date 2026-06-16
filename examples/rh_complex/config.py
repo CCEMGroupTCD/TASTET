@@ -17,7 +17,7 @@ USE_CASE_DIR: Path = Path(__file__).resolve().parent
 OUTPUT_ROOT: Path = USE_CASE_DIR / "output"
 
 # ── Analysis naming ──────────────────────────────────────────────────
-ANALYSIS_NAME: str = "round2_cka"
+ANALYSIS_NAME: str = "production"
 
 # ── Seed ─────────────────────────────────────────────────────────────
 SEED: int = 22
@@ -83,6 +83,15 @@ KERNEL_GRID = [
 # CKA target-kernel type for round2.py's supervised grid search.
 CKA_TARGET_KERNEL: str = "linear"  # "linear" or "rbf"
 
+# ── Grid-search analysis (analysis/analyze_gridsearch.py) ────────────
+# Diagnostics for ranking SOAP × kernel combinations by their pairwise
+# distance distributions.
+GRID_ANALYSIS_BANDWIDTH: float = 0.01  # KDE bandwidth for the distance distribution
+GRID_ANALYSIS_TOP_N: int = 5  # number of top-ranked combinations to plot
+GRID_ANALYSIS_IQR_FLOOR: float | None = (
+    None  # min IQR/√2 to qualify; None disables the filter
+)
+
 # ─────────────────────────────────────────────────────────────────────
 #  MULTI-CHANNEL KERNEL  (used when USE_TENSOR_PRODUCT = True)
 # ─────────────────────────────────────────────────────────────────────
@@ -94,9 +103,8 @@ _SOAP_GRID_SHARED: dict = dict(
 KERNEL_CHANNELS: list[dict] = [
     {
         "name": "core_kernel",
-        "centers_from_smarts": False,
         "soap": dict(
-            r_cut=2.0,
+            r_cut=3.0,
             centers=[10, 55, 52, 0, 1],
             species=_SHARED_SPECIES,
             sigma=0.1,
@@ -107,11 +115,7 @@ KERNEL_CHANNELS: list[dict] = [
             n_jobs=-1,
             periodic=False,
         ),
-        "kernel": dict(
-            method="average",
-            metric="linear",
-            # gamma="median"
-        ),
+        "kernel": dict(method="average", metric="rbf", gamma="median"),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
             dict(method="average", metric="linear"),
@@ -120,9 +124,8 @@ KERNEL_CHANNELS: list[dict] = [
     },
     {
         "name": "periphery_kernel",
-        "centers_from_smarts": False,
         "soap": dict(
-            r_cut=4.0,
+            r_cut=2.0,
             centers=[7, 30, 36, 14, 23, 9, 17, 19],
             species=_SHARED_SPECIES,
             sigma=0.5,
@@ -135,8 +138,8 @@ KERNEL_CHANNELS: list[dict] = [
         ),
         "kernel": dict(
             method="rematch",
-            metric="linear",
-            # gamma="median",
+            metric="rbf",
+            gamma="median",
             alpha=0.5,
         ),
         "soap_grid": _SOAP_GRID_SHARED,
@@ -148,13 +151,10 @@ KERNEL_CHANNELS: list[dict] = [
 ]
 
 KERNEL_COMBINE: str = "product"
-# KERNEL_WEIGHTS apply only when KERNEL_COMBINE == "weighted_sum";
-# they are ignored for "product" and "sum".
-KERNEL_WEIGHTS: list[float] = [0.8, 0.2]
 
 
 # ── Structure selection ──────────────────────────────────────────────
-SELECTION_K: int = 34
+SELECTION_K: int = 28
 SELECTION_METHOD: str = "fps"
 SELECTION_XYZ_TEMPLATE: str = "conformer_{id}.xyz"
 
@@ -163,10 +163,88 @@ KERNEL_KDE_BANDWIDTH: float = 0.01
 
 
 # =====================================================================
+#  ROUND 2 — supervised CKA re-optimisation + incremental selection
+# =====================================================================
+# Round 1 (run.py) selects SELECTION_K conformers with the unsupervised
+# KERNEL_CHANNELS above; their DFT energies (ENERGIES_CSV) then supervise
+# a second grid search scored by CKA (reoptimise.py), which lands on a
+# *different* representation (ROUND2_KERNEL_CHANNELS). To keep both rounds
+# reproducible from this one file, round 2 lives in its own output
+# namespace and uses its own channels — the round2/ scripts apply these
+# at runtime (round2._common.activate_round2); run.py is unaffected.
+
+ROUND2_ANALYSIS_NAME: str = "round2"
+
+ENERGIES_CSV: Path = USE_CASE_DIR / "input" / "energies_round1.csv"
+ENERGY_COL: str = "E (Ha)"  # absolute DFT energy column in ENERGIES_CSV
+
+TOTAL_BUDGET: int = 56  # total relaxed structures wanted (round 1 + round 2)
+ZOOM_K: int = 19  # picks for zoom_select / nearest_select
+
+# Focused selection within a kPCA region of interest (zoom_select). Set
+# the bounds after viewing the round-2 kPCA; None = unbounded on that side.
+ZOOM_BOX: dict = {"kpc1": (None, None), "kpc2": (None, None)}
+ZOOM_METHOD: str = "fps"  # "fps" (seeded by round-1 in-box) or "kmedoids"
+
+# Point of interest for nearest_select. None → lowest-energy round-1 conformer.
+ZOOM_CENTER: int | None = None
+
+# Re-optimised channels chosen from the CKA grid search (linear kernels).
+# Same structure as KERNEL_CHANNELS: the chosen soap/kernel are what the
+# selection uses; soap_grid/kernel_grid define the space reoptimise sweeps.
+ROUND2_KERNEL_CHANNELS: list[dict] = [
+    {
+        "name": "core_kernel",
+        "soap": dict(
+            r_cut=2.0,
+            centers=[10, 55, 52, 0, 1],
+            species=_SHARED_SPECIES,
+            sigma=0.1,
+            n_max=8,
+            l_max=8,
+            average="off",
+            normalize=True,
+            n_jobs=-1,
+            periodic=False,
+        ),
+        "kernel": dict(method="average", metric="linear"),
+        "soap_grid": _SOAP_GRID_SHARED,
+        "kernel_grid": [
+            dict(method="average", metric="linear"),
+            dict(method="average", metric="rbf", gamma="median"),
+        ],
+    },
+    {
+        "name": "periphery_kernel",
+        "soap": dict(
+            r_cut=5.0,
+            centers=[7, 30, 36, 14, 23, 9, 17, 19],
+            species=_SHARED_SPECIES,
+            sigma=0.5,
+            n_max=8,
+            l_max=8,
+            average="off",
+            normalize=True,
+            n_jobs=-1,
+            periodic=False,
+        ),
+        "kernel": dict(method="rematch", metric="linear", alpha=0.5),
+        "soap_grid": _SOAP_GRID_SHARED,
+        "kernel_grid": [
+            dict(method="rematch", metric="linear", alpha=0.5),
+            dict(method="rematch", metric="rbf", gamma="median", alpha=0.1),
+        ],
+    },
+]
+
+ROUND2_KERNEL_COMBINE: str = "product"
+
+
+# =====================================================================
 #  USE-CASE-SPECIFIC — Rh complex conformer analysis
 # =====================================================================
 
-SDF_FILE: Path = USE_CASE_DIR / "input" / "Rh_confs_2732.sdf"
+SDF_FILE: Path = USE_CASE_DIR / "input" / "open_babel_Rh_conformers.sdf"
 
 # FLEXIBLE_SMARTS: list[str] = ["..."]  # uncomment to use SMARTS-derived centres
 FLEXIBLE_INCLUDE_H: bool = False
@@ -241,7 +319,8 @@ def combined_kernel_tag() -> str:
 
     :returns: ``f"{combine}_{8-char-hash}"``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     blob = json.dumps(
         {
@@ -262,7 +341,8 @@ def grid_search_tag() -> str:
 
     :returns: 8-character hex hash.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     flex_smarts = globals().get("FLEXIBLE_SMARTS")
     flex_include_h = globals().get("FLEXIBLE_INCLUDE_H", True)
@@ -314,7 +394,8 @@ def channel_soap_tag(ch: dict) -> str:
     :param ch: One entry from ``KERNEL_CHANNELS``.
     :returns: A directory name like ``rcut2.0_sig0.5_n8_l8_aabbccdd``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     p = ch["soap"]
     base = (
@@ -349,7 +430,8 @@ def channel_kernel_tag(ch: dict) -> str:
     :param ch: One entry from ``KERNEL_CHANNELS``.
     :returns: A directory name like ``rematch_rbf_eeff0011``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     k = ch["kernel"]
     method = k.get("method", "?")
@@ -474,6 +556,20 @@ def selection_dir() -> Path:
     return d
 
 
+def kpca_analysis_dir() -> Path:
+    """Analysis output subdirectory next to the active kPCA outputs.
+
+    Holds script-generated kPCA diagnostics (e.g. the energy-coloured
+    plots from ``analysis/plot_energy_kpca.py``), kept out of the
+    pipeline-generated files.
+
+    :returns: ``kernel_dir() / "analysis"`` (created if missing).
+    """
+    d = kernel_dir() / "analysis"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def db_path() -> Path:
     """ASE database for the active analysis."""
     return analysis_dir() / "structures.db"
@@ -527,6 +623,21 @@ def grid_search_heatmap_path() -> Path:
 def grid_search_config_path() -> Path:
     """JSON file recording the grid search configuration."""
     return grid_search_dir() / "config.json"
+
+
+def grid_search_analysis_dir(grid_dir: Path) -> Path:
+    """Analysis output subdirectory for one grid-search directory.
+
+    Keeps script-generated diagnostics (rankings, top-N plot) separate
+    from the pipeline-generated grid-search files.
+
+    :param grid_dir: A grid-search directory under
+        ``analysis_dir() / "grid_search"``.
+    :returns: ``grid_dir / "analysis"`` (created if missing).
+    """
+    d = grid_dir / "analysis"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def selection_csv_path() -> Path:

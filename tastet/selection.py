@@ -17,10 +17,17 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import kmedoids as _kmedoids
 
-from tastet.plotting.style import set_mpl_style, apply_axis_style, savefig, cmap, palette
+from tastet.plotting.style import (
+    set_mpl_style,
+    apply_axis_style,
+    savefig,
+    cmap,
+    palette,
+)
 
 
 # ── Kernel helpers ────────────────────────────────────────────────────
+
 
 def kernel_to_distance(K: np.ndarray) -> np.ndarray:
     """Convert a normalised kernel to a distance matrix.
@@ -35,6 +42,7 @@ def kernel_to_distance(K: np.ndarray) -> np.ndarray:
 
 
 # ── Sampling backends ─────────────────────────────────────────────────
+
 
 def _select_kmedoids(K_sub: np.ndarray, k: int, seed: int) -> np.ndarray:
     """Select representative points using k-medoids clustering.
@@ -93,6 +101,7 @@ _METHODS = {"kmedoids": _select_kmedoids, "fps": _select_fps}
 
 # ── Selection ─────────────────────────────────────────────────────────
 
+
 def select_structures(
     K: np.ndarray,
     meta: pd.DataFrame,
@@ -138,8 +147,10 @@ def select_structures(
             raise KeyError(f"Column {energy_col!r} not found in metadata.")
         mask = meta[energy_col].values <= energy_max
         idx_pool = np.where(mask)[0]
-        print(f"  Energy filter: {mask.sum()}/{len(meta)} structures "
-              f"with {energy_col} ≤ {energy_max}")
+        print(
+            f"  Energy filter: {mask.sum()}/{len(meta)} structures "
+            f"with {energy_col} ≤ {energy_max}"
+        )
     else:
         idx_pool = np.arange(len(meta))
 
@@ -157,6 +168,7 @@ def select_structures(
 
     selected = meta.iloc[global_idx].copy().reset_index(drop=True)
     return selected, idx_pool, global_idx
+
 
 def _select_fps_seeded(
     K: np.ndarray,
@@ -242,8 +254,10 @@ def select_additional(
         if energy_col not in meta.columns:
             raise KeyError(f"Column {energy_col!r} not found in metadata.")
         mask = meta[energy_col].values <= energy_max
-        print(f"  Energy filter: {int(mask.sum())}/{len(meta)} structures "
-              f"with {energy_col} ≤ {energy_max}")
+        print(
+            f"  Energy filter: {int(mask.sum())}/{len(meta)} structures "
+            f"with {energy_col} ≤ {energy_max}"
+        )
     else:
         mask = np.ones(len(meta), dtype=bool)
 
@@ -254,13 +268,17 @@ def select_additional(
         print(f"  Warning: pool ({len(idx_pool)}) < k ({k}).  Selecting all.")
         k = len(idx_pool)
 
-    print(f"  Incremental FPS: k={k}, pool={len(idx_pool)}, "
-          f"seeded by {len(preselected)} preselected")
+    print(
+        f"  Incremental FPS: k={k}, pool={len(idx_pool)}, "
+        f"seeded by {len(preselected)} preselected"
+    )
     global_idx = _select_fps_seeded(K, idx_pool, preselected, k)
     selected = meta.iloc[global_idx].reset_index(drop=True)
     return selected, idx_pool, global_idx
 
+
 # ── Plotting ──────────────────────────────────────────────────────────
+
 
 def plot_selection(
     proj_df: pd.DataFrame,
@@ -278,13 +296,13 @@ def plot_selection(
     Visually identical to :func:`tastet.plotting.kpca.plot_kpca` for the
     base scatter (same figsize, same marker size and alpha, same
     palette colour), except that selected structures are overlaid in
-    :data:`palette["pink"]` at twice the marker size. Reading
+    :data:`palette["magenta"]` at twice the marker size. Reading
     ``selection.png`` next to ``kpca.png`` shows the same point cloud
     with the picks lit up — no other visual difference.
 
     When *color_values* is provided, the pool is coloured by the
     project gradient (anchored to the full dataset range); the
-    overlaid selections stay pink so they remain visible against any
+    overlaid selections stay magenta so they remain visible against any
     point colour.
 
     :param proj_df: Full projections DataFrame (all structures).
@@ -310,27 +328,37 @@ def plot_selection(
         norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
         scatter = ax.scatter(
-            kpc1[idx_pool], kpc2[idx_pool],
+            kpc1[idx_pool],
+            kpc2[idx_pool],
             c=color_values[idx_pool],
-            s=60, alpha=0.7, edgecolors="none",
-            cmap=cmap, norm=norm,
+            s=60,
+            alpha=0.7,
+            edgecolors="none",
+            cmap=cmap,
+            norm=norm,
             zorder=1,
         )
         cbar = fig.colorbar(scatter, ax=ax)
         cbar.set_label(color_label)
     else:
         ax.scatter(
-            kpc1[idx_pool], kpc2[idx_pool],
+            kpc1[idx_pool],
+            kpc2[idx_pool],
             c=palette["blue"],
-            s=60, alpha=0.7, edgecolors="none",
+            s=60,
+            alpha=0.7,
+            edgecolors="none",
             zorder=1,
         )
 
-    # Selected — pink, larger, on top
+    # Selected — magenta, larger, on top
     ax.scatter(
-        kpc1[selected_indices], kpc2[selected_indices],
-        c=palette["pink"],
-        s=120, alpha=0.9, edgecolors="none",
+        kpc1[selected_indices],
+        kpc2[selected_indices],
+        c=palette["magenta"],
+        s=120,
+        alpha=0.9,
+        edgecolors="none",
         zorder=5,
     )
 
@@ -362,9 +390,9 @@ def plot_selection_3d(
     """3-D companion to :func:`plot_selection`.
 
     Visually identical to :func:`tastet.plotting.kpca.plot_kpca_3d` for
-    the base scatter; selections overlaid in :data:`palette["pink"]`
+    the base scatter; selections overlaid in :data:`palette["magenta"]`
     at twice the marker size. ``depthshade=False`` on the selected
-    layer keeps the pink markers visible even when they sit behind
+    layer keeps the magenta markers visible even when they sit behind
     dense regions of the cloud.
 
     :param proj_df: Full projections DataFrame (all structures).
@@ -392,9 +420,7 @@ def plot_selection_3d(
             "Rerun the kpca step (it now writes kpc1/kpc2/kpc3)."
         )
     if len(explained_variance_pct) < 3:
-        raise IndexError(
-            "explained_variance_pct must have at least 3 entries."
-        )
+        raise IndexError("explained_variance_pct must have at least 3 entries.")
 
     set_mpl_style()
     fig = plt.figure(figsize=(6, 4))
@@ -409,27 +435,41 @@ def plot_selection_3d(
         vmin, vmax = float(color_values.min()), float(color_values.max())
         norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         scatter = ax.scatter(
-            kpc1[idx_pool], kpc2[idx_pool], kpc3[idx_pool],
+            kpc1[idx_pool],
+            kpc2[idx_pool],
+            kpc3[idx_pool],
             c=color_values[idx_pool],
-            s=60, alpha=0.7, edgecolors="none",
-            cmap=cmap, norm=norm, depthshade=True,
+            s=60,
+            alpha=0.7,
+            edgecolors="none",
+            cmap=cmap,
+            norm=norm,
+            depthshade=True,
         )
         cbar = fig.colorbar(scatter, ax=ax, shrink=0.7, pad=0.1)
         cbar.set_label(color_label)
     else:
         ax.scatter(
-            kpc1[idx_pool], kpc2[idx_pool], kpc3[idx_pool],
+            kpc1[idx_pool],
+            kpc2[idx_pool],
+            kpc3[idx_pool],
             c=palette["blue"],
-            s=60, alpha=0.7, edgecolors="none",
+            s=60,
+            alpha=0.7,
+            edgecolors="none",
             depthshade=True,
         )
 
-    # Selected — pink, larger; depthshade=False keeps them visible
+    # Selected — magenta, larger; depthshade=False keeps them visible
     # even when they sit behind dense regions of the cloud.
     ax.scatter(
-        kpc1[selected_indices], kpc2[selected_indices], kpc3[selected_indices],
-        c=palette["pink"],
-        s=120, alpha=0.9, edgecolors="none",
+        kpc1[selected_indices],
+        kpc2[selected_indices],
+        kpc3[selected_indices],
+        c=palette["magenta"],
+        s=120,
+        alpha=0.9,
+        edgecolors="none",
         depthshade=False,
     )
 

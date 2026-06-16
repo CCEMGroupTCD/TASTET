@@ -12,6 +12,7 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import sys
 import warnings
 
@@ -22,16 +23,25 @@ from tastet.soap_utils import compute_soap
 from tastet.kernel import compute_kernel, resolve_kernel_params, combine_kernels
 from tastet.io import (
     load_atoms_and_meta,
-    save_soap, load_soap,
-    save_kernel, load_kernel,
+    save_soap,
+    load_soap,
+    save_kernel,
+    load_kernel,
 )
-from tastet.distance import pairwise_dataframe, pairwise_distances
+from tastet.distance import pairwise_dataframe
 from tastet.kpca import fit_kpca
-from tastet.pipeline import soap_step, kernel_step, kpca_step, grid_search_step, select_step
+from tastet.pipeline import (
+    soap_step,
+    kernel_step,
+    kpca_step,
+    grid_search_step,
+    select_step,
+)
 from tastet.sweep.multichannel import grid_search_multichannel_step
 from tastet.plotting import plot_kpca
 from tastet.plotting.distance import (
-    plot_distance_histogram, plot_distance_histogram_kde,
+    plot_distance_histogram,
+    plot_distance_histogram_kde,
 )
 from tastet.metrics.cka import CKAScorer
 from tastet.selection import plot_selection
@@ -45,16 +55,31 @@ import config as cfg
 from prepare import ensure_database, subsample, resolve_channel_soap
 
 
-warnings.filterwarnings("ignore", message="overflow encountered in exp", category=RuntimeWarning)
-warnings.filterwarnings("ignore", message="invalid value encountered in scalar divide", category=RuntimeWarning)
-warnings.filterwarnings("ignore", message="divide by zero encountered in scalar divide", category=RuntimeWarning)
-warnings.filterwarnings("ignore", message="divide by zero encountered in divide", category=RuntimeWarning)
+warnings.filterwarnings(
+    "ignore", message="overflow encountered in exp", category=RuntimeWarning
+)
+warnings.filterwarnings(
+    "ignore",
+    message="invalid value encountered in scalar divide",
+    category=RuntimeWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message="divide by zero encountered in scalar divide",
+    category=RuntimeWarning,
+)
+warnings.filterwarnings(
+    "ignore", message="divide by zero encountered in divide", category=RuntimeWarning
+)
 
 
 # ── Combined-kernel output helper ────────────────────────────────────
 
+
 def _save_combined_distance_outputs(
-    cfg, K: np.ndarray, ids: np.ndarray | list,
+    cfg,
+    K: np.ndarray,
+    ids: np.ndarray | list,
 ) -> None:
     """Write the combined-kernel distance outputs, skipping existing files.
 
@@ -101,6 +126,7 @@ def _save_combined_distance_outputs(
 
 
 # ── Use-case wrappers ─────────────────────────────────────────────────
+
 
 def _db() -> None:
     """Build / update the master database from the configured runs."""
@@ -216,9 +242,7 @@ def _kernel() -> None:
         return
 
     # ── Multi-channel: one kernel per channel, then combine ──────────
-    all_species = sorted({
-        s for a in atoms for s in a.get_chemical_symbols()
-    })
+    all_species = sorted({s for a in atoms for s in a.get_chemical_symbols()})
 
     per_channel: list = []
     channel_meta: list[dict] = []
@@ -256,7 +280,9 @@ def _kernel() -> None:
         per_channel.append(K_ch)
         soap_with_species = dict(ch["soap"])
         soap_with_species.setdefault("species", all_species)
-        channel_meta.append({"name": name, "soap": soap_with_species, "kernel": k_params})
+        channel_meta.append(
+            {"name": name, "soap": soap_with_species, "kernel": k_params}
+        )
 
     mode = getattr(cfg, "KERNEL_COMBINE", "product")
     weights = getattr(cfg, "KERNEL_WEIGHTS", None)
@@ -267,7 +293,9 @@ def _kernel() -> None:
     with open(cfg.kernel_meta_path(), "w") as f:
         json.dump(
             {"combine_mode": mode, "weights": weights, "channels": channel_meta},
-            f, indent=2, default=str,
+            f,
+            indent=2,
+            default=str,
         )
     print(f"  Kernel meta  -> {cfg.kernel_meta_path()}")
 
@@ -287,7 +315,8 @@ def _kpca() -> None:
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
         kpca_step(
-            cfg, meta,
+            cfg,
+            meta,
             color_values=color_values,
             color_label="Formation energy (eV)",
         )
@@ -300,7 +329,9 @@ def _kpca() -> None:
         name = ch["name"]
         k_path = cfg.channel_kernel_path(ch)
         if not k_path.exists():
-            sys.exit(f"Missing channel kernel [{name}]: {k_path}.  Run 'kernel' step first.")
+            sys.exit(
+                f"Missing channel kernel [{name}]: {k_path}.  Run 'kernel' step first."
+            )
 
         ch_kdir = cfg.channel_kernel_dir(ch)
         plot_path = ch_kdir / "kpca.png"
@@ -319,7 +350,9 @@ def _kpca() -> None:
         proj_df["kpc2"] = result.projections[:, 1]
         proj_df.to_csv(csv_path, index=False)
 
-        kpca_meta = {"explained_variance_pct": (result.explained_variance * 100).tolist()}
+        kpca_meta = {
+            "explained_variance_pct": (result.explained_variance * 100).tolist()
+        }
         with open(ch_kdir / "kpca_meta.json", "w") as f:
             json.dump(kpca_meta, f, indent=2)
 
@@ -327,14 +360,16 @@ def _kpca() -> None:
             result,
             color_values=color_values,
             color_label="Formation energy (eV)",
-            save=plot_path, show=show,
+            save=plot_path,
+            show=show,
         )
         print(f"  Plot         -> {plot_path}")
         print(f"  Projections  -> {csv_path}")
 
     # Combined kernel — 2-D + 3-D + kpc3 in CSV via kpca_step
     kpca_step(
-        cfg, meta,
+        cfg,
+        meta,
         color_values=color_values,
         color_label="Formation energy (eV)",
     )
@@ -403,13 +438,13 @@ def _select() -> None:
 # ── CLI dispatch ──────────────────────────────────────────────────────
 
 STEPS: dict[str, callable] = {
-    "db":          _db,
-    "subsample":   _subsample,
+    "db": _db,
+    "subsample": _subsample,
     "grid_search": _grid_search,
-    "soap":        _soap,
-    "kernel":      _kernel,
-    "kpca":        _kpca,
-    "select":      _select,
+    "soap": _soap,
+    "kernel": _kernel,
+    "kpca": _kpca,
+    "select": _select,
 }
 
 USAGE: str = """\
@@ -448,7 +483,7 @@ def main() -> None:
         if name not in STEPS:
             print(USAGE)
             sys.exit(f"Unknown step: {name!r}")
-        print(f"\n{'='*60}\n  Step: {name}\n{'='*60}")
+        print(f"\n{'=' * 60}\n  Step: {name}\n{'=' * 60}")
         STEPS[name]()
 
 

@@ -92,10 +92,14 @@ def grid_search_multichannel_step(
         kernel_grid = ch.get("kernel_grid", [base_kernel])
 
         soap_keys = list(soap_grid.keys())
-        soap_combos = [
-            dict(zip(soap_keys, vals))
-            for vals in iproduct(*(soap_grid[k] for k in soap_keys))
-        ] if soap_keys else [{}]
+        soap_combos = (
+            [
+                dict(zip(soap_keys, vals))
+                for vals in iproduct(*(soap_grid[k] for k in soap_keys))
+            ]
+            if soap_keys
+            else [{}]
+        )
 
         options = []
         for s_params in soap_combos:
@@ -114,8 +118,7 @@ def grid_search_multichannel_step(
     max_combos = getattr(cfg, "MAX_GRID_COMBINATIONS", 500)
     if n_total > max_combos:
         per_ch = " × ".join(
-            f"{ch['name']}({len(opts)})"
-            for ch, opts in zip(channels, channel_options)
+            f"{ch['name']}({len(opts)})" for ch, opts in zip(channels, channel_options)
         )
         sys.exit(
             f"Multi-channel grid search has {n_total} combinations "
@@ -227,14 +230,16 @@ def grid_search_multichannel_step(
     for ch in channels:
         soap_with_species = dict(ch["soap"])
         soap_with_species.setdefault("species", all_species)
-        snapshot_channels.append({
-            "name": ch["name"],
-            "centers_from_smarts": ch.get("centers_from_smarts", False),
-            "soap": soap_with_species,
-            "kernel": ch["kernel"],
-            "soap_grid": ch.get("soap_grid", {}),
-            "kernel_grid": ch.get("kernel_grid", [ch["kernel"]]),
-        })
+        snapshot_channels.append(
+            {
+                "name": ch["name"],
+                "centers_from_smarts": ch.get("centers_from_smarts", False),
+                "soap": soap_with_species,
+                "kernel": ch["kernel"],
+                "soap_grid": ch.get("soap_grid", {}),
+                "kernel_grid": ch.get("kernel_grid", [ch["kernel"]]),
+            }
+        )
     snapshot = {
         "use_tensor_product": True,
         "combine_mode": mode,
@@ -242,6 +247,7 @@ def grid_search_multichannel_step(
         "scorer": getattr(scorer, "name", None),
         "channels": snapshot_channels,
         "random_seed": getattr(cfg, "SEED", None),
+        "number_subsamples": getattr(cfg, "GRID_SEARCH_N_SAMPLES", None),
     }
     with open(config_path, "w") as f:
         json.dump(snapshot, f, indent=2, default=str)
