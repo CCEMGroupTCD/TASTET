@@ -29,10 +29,10 @@ from ase import Atoms
 from ase.db import connect
 from ase.io import read
 
-from sads.io import (
+from tastet.io import (
     build_database,
     load_atoms_and_meta,
-    ensure_database as sads_ensure_database,
+    ensure_database as tastet_ensure_database,
 )
 
 import config as cfg
@@ -46,7 +46,7 @@ def ensure_database() -> None:
         p = cfg.RUNS_DIR / name
         if not p.exists():
             sys.exit(f"Run directory not found: {p}")
-    sads_ensure_database(cfg.db_path(), build_fn=_build_database, update_fn=update_formation_energies)
+    tastet_ensure_database(cfg.db_path(), build_fn=_build_database, update_fn=update_formation_energies)
 
 
 def resolve_channel_soap(channel: dict) -> dict:
@@ -57,7 +57,7 @@ def resolve_channel_soap(channel: dict) -> dict:
     ``center_atoms`` in the channel's SOAP dict (or default to all atoms).
 
     :param channel: A single entry from ``KERNEL_CHANNELS``.
-    :returns: Keyword dict ready to pass to :func:`sads.soap_utils.compute_soap`.
+    :returns: Keyword dict ready to pass to :func:`tastet.soap_utils.compute_soap`.
     """
     return dict(channel["soap"])
 

@@ -3,9 +3,9 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sads"
+name = "tastet"
 version = "0.1.0.dev1"
-description = "Selection by Atomic Density Similarity"
+description = "Tool for Atomistic Structure selection Through Efficient Triage"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -36,4 +36,4 @@ examples = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["sads*"]
+include = ["tastet*"]

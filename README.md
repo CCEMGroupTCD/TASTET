@@ -1,4 +1,4 @@
-# SADS — Selection by Atomic Density Similarity
+# TASTET — Tool for Atomistic Structure selection Through Efficient Triage
 
 Explore atomic structures via SOAP descriptors, global similarity kernels, and kernel PCA.
 
@@ -12,8 +12,8 @@ pip install -e .
 
 ```python
 from ase.io import read
-from sads import compute_soap, compute_kernel, fit_kpca
-from sads.plotting import plot_kpca
+from tastet import compute_soap, compute_kernel, fit_kpca
+from tastet.plotting import plot_kpca
 
 structures = read("structures.traj", index=":")
 
@@ -31,7 +31,7 @@ Each subdirectory under `use_cases/` is a self-contained analysis with its own `
 ## Package structure
 
 ```
-sads/
+tastet/
 ├── soap.py          # compute_soap — public API
 ├── soap_utils.py    # generate_environment_soap internals
 ├── kernel.py        # compute_kernel — average / REMatch kernels

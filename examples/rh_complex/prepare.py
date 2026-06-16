@@ -29,9 +29,9 @@ import pandas as pd
 from ase import Atoms
 from rdkit import Chem
 
-from sads.io import (
+from tastet.io import (
     build_database,
-    ensure_database as sads_ensure_database,
+    ensure_database as tastet_ensure_database,
     load_atoms_and_meta,
     subsample_from_db,
 )
@@ -45,7 +45,7 @@ _UNSET = object()  # sentinel for resolve_soap_centers default
 
 def ensure_database() -> None:
     """Build the conformer database from the SDF if it doesn't exist."""
-    sads_ensure_database(cfg.db_path(), build_fn=_build_database)
+    tastet_ensure_database(cfg.db_path(), build_fn=_build_database)
 
 
 def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
@@ -141,7 +141,7 @@ def resolve_channel_soap(channel: dict) -> dict:
     specified via ``center_atoms`` or default to all atoms).
 
     :param channel: A single entry from ``KERNEL_CHANNELS``.
-    :returns: Keyword dict ready to pass to :func:`sads.soap_utils.compute_soap`.
+    :returns: Keyword dict ready to pass to :func:`tastet.soap_utils.compute_soap`.
     """
     soap_kw = dict(channel["soap"])
     if channel.get("centers_from_smarts"):

@@ -18,23 +18,23 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from sads.soap_utils import compute_soap
-from sads.kernel import compute_kernel, resolve_kernel_params, combine_kernels
-from sads.io import (
+from tastet.soap_utils import compute_soap
+from tastet.kernel import compute_kernel, resolve_kernel_params, combine_kernels
+from tastet.io import (
     load_atoms_and_meta,
     save_soap, load_soap,
     save_kernel, load_kernel,
 )
-from sads.distance import pairwise_dataframe, pairwise_distances
-from sads.kpca import fit_kpca
-from sads.pipeline import soap_step, kernel_step, kpca_step, grid_search_step, select_step
-from sads.sweep.multichannel import grid_search_multichannel_step
-from sads.plotting import plot_kpca
-from sads.plotting.distance import (
+from tastet.distance import pairwise_dataframe, pairwise_distances
+from tastet.kpca import fit_kpca
+from tastet.pipeline import soap_step, kernel_step, kpca_step, grid_search_step, select_step
+from tastet.sweep.multichannel import grid_search_multichannel_step
+from tastet.plotting import plot_kpca
+from tastet.plotting.distance import (
     plot_distance_histogram, plot_distance_histogram_kde,
 )
-from sads.metrics.cka import CKAScorer
-from sads.selection import plot_selection
+from tastet.metrics.cka import CKAScorer
+from tastet.selection import plot_selection
 
 from ase.db import connect
 from ase.io import write
@@ -58,7 +58,7 @@ def _save_combined_distance_outputs(
 ) -> None:
     """Write the combined-kernel distance outputs, skipping existing files.
 
-    Mirror of :func:`sads.pipeline._save_distance_outputs` for the
+    Mirror of :func:`tastet.pipeline._save_distance_outputs` for the
     multi-channel branch of :func:`_kernel`. Each output is regenerated
     only when missing, so deleting one file (e.g.
     ``kde_distance_distribution.png`` after bumping
@@ -116,9 +116,9 @@ def _grid_search() -> None:
     """Sweep SOAP × kernel parameters, scored by CKA against formation energy.
 
     Dispatches by ``USE_TENSOR_PRODUCT``: multi-channel sweep via
-    :func:`sads.sweep.multichannel.grid_search_multichannel_step` or
-    single-kernel sweep via :func:`sads.pipeline.grid_search_step`,
-    both scored by :class:`~sads.metrics.cka.CKAScorer` against the
+    :func:`tastet.sweep.multichannel.grid_search_multichannel_step` or
+    single-kernel sweep via :func:`tastet.pipeline.grid_search_step`,
+    both scored by :class:`~tastet.metrics.cka.CKAScorer` against the
     formation energies.
     """
     atoms, meta = load_atoms_and_meta(cfg.db_path())
@@ -194,7 +194,7 @@ def _soap() -> None:
 def _kernel() -> None:
     """Build the kernel matrix from cached SOAP descriptors.
 
-    Single-kernel mode delegates to :func:`sads.pipeline.kernel_step`.
+    Single-kernel mode delegates to :func:`tastet.pipeline.kernel_step`.
     Multi-channel mode looks up each channel's SOAP and kernel at their
     hash-keyed cache paths (a cache hit is a plain path-existence
     check), combines them via ``KERNEL_COMBINE`` / ``KERNEL_WEIGHTS``,
@@ -277,7 +277,7 @@ def _kernel() -> None:
 def _kpca() -> None:
     """Run kPCA, colouring projections by formation energy.
 
-    The combined kernel goes through :func:`sads.pipeline.kpca_step`
+    The combined kernel goes through :func:`tastet.pipeline.kpca_step`
     (2-D + 3-D). In multi-channel mode each per-channel kernel is also
     projected (2-D), with outputs living inside the channel's hash-keyed
     kernel directory.
@@ -345,7 +345,7 @@ def _select() -> None:
 
     Applies the formation-energy filter, runs diverse selection
     (``selection.png`` over the filtered pool, plus 2-D/3-D plots via
-    :func:`sads.pipeline.select_step`), then adds a full-view kPCA plot
+    :func:`tastet.pipeline.select_step`), then adds a full-view kPCA plot
     with the selections highlighted and exports VASP POSCARs.
     """
     # ── 1. Run selection (filtered pool + selection.png) ─────────────
