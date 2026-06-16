@@ -33,7 +33,7 @@ from prepare import (  # noqa: E402
     resolve_soap_centers,
     resolve_channel_soap,
 )
-from round2._common import activate_round2, load_round1_energies, position_of  # noqa: E402
+from _common import activate_round2, load_round1_energies, position_of  # noqa: E402
 
 
 def cka_grid() -> None:

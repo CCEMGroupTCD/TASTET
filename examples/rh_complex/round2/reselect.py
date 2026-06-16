@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config as cfg  # noqa: E402
 import run  # noqa: E402  (reused _soap / _kernel wrappers)
 from prepare import ensure_database  # noqa: E402
-from round2._common import (  # noqa: E402
+from _common import (  # noqa: E402
     activate_round2,
     in_box,
     load_round1_energies,
