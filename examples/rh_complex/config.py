@@ -176,14 +176,17 @@ KERNEL_KDE_BANDWIDTH: float = 0.01
 ROUND2_ANALYSIS_NAME: str = "round2"
 
 ENERGIES_CSV: Path = USE_CASE_DIR / "input" / "energies_round1.csv"
-ENERGY_COL: str = "E (Ha)"  # absolute DFT energy column in ENERGIES_CSV
+# DFT energies of the round-2 picks (union of the three selection
+# strategies), recorded after their relaxation. Used only for plotting.
+ROUND2_ENERGIES_CSV: Path = USE_CASE_DIR / "input" / "energies_round2.csv"
+ENERGY_COL: str = "E (Ha)"  # absolute DFT energy column in the energy CSVs
 
-TOTAL_BUDGET: int = 56  # total relaxed structures wanted (round 1 + round 2)
+TOTAL_BUDGET: int = 47  # total relaxed structures wanted (28 round 1 + 19 round 2)
 ZOOM_K: int = 19  # picks for zoom_select / nearest_select
 
-# Focused selection within a kPCA region of interest (zoom_select). Set
-# the bounds after viewing the round-2 kPCA; None = unbounded on that side.
-ZOOM_BOX: dict = {"kpc1": (None, None), "kpc2": (None, None)}
+# Focused selection within a kPCA region of interest (zoom_select). Bounds
+# read off the round-2 kPCA; None = unbounded on that side.
+ZOOM_BOX: dict = {"kpc1": (-0.07, -0.025), "kpc2": (-0.04, 0.025)}
 ZOOM_METHOD: str = "fps"  # "fps" (seeded by round-1 in-box) or "kmedoids"
 
 # Point of interest for nearest_select. None → lowest-energy round-1 conformer.

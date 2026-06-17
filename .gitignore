@@ -53,6 +53,7 @@ examples/**
 !examples/rh_complex/input/
 !examples/rh_complex/input/*.sdf
 !examples/rh_complex/input/energies_round1.csv
+!examples/rh_complex/input/energies_round2.csv
 !examples/rh_complex/analysis/
 !examples/rh_complex/analysis/*.py
 !examples/rh_complex/round2/
