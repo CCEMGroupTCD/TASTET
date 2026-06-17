@@ -32,6 +32,7 @@ from tastet.plotting.style import (
     palette,
     savefig,
     set_mpl_style,
+    styled_legend,
 )
 
 # config.py lives in the example root, one level up from analysis/.
@@ -39,7 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config as cfg  # noqa: E402
 
 HARTREE_TO_KCAL: float = 627.509474
-ENERGY_LABEL: str = "round 1  ΔE (kcal/mol)"
+ENERGY_LABEL: str = r"$E - E_\mathrm{gm}$ (kcal mol$^{-1}$)"
 
 
 def _load_inputs() -> tuple[pd.DataFrame, list[float], np.ndarray, np.ndarray]:
@@ -104,8 +105,8 @@ def _plot_2d(proj, ev, dE, mask, out_path: Path) -> None:
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     apply_axis_style(ax)
-    ax.legend(frameon=False, loc="best")
-    savefig(fig, out_path, dpi=300)
+    styled_legend(ax, loc="best")
+    savefig(fig, out_path, dpi=300, also_pdf=True)
     plt.close(fig)
 
 
@@ -142,8 +143,8 @@ def _plot_3d(proj, ev, dE, mask, out_path: Path) -> None:
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     ax.set_zlabel(rf"kPC#3 ({ev[2]:.1f}%)")
-    ax.legend(frameon=False, loc="upper left")
-    savefig(fig, out_path, dpi=300)
+    styled_legend(ax, loc="upper left")
+    savefig(fig, out_path, dpi=300, also_pdf=True)
     plt.close(fig)
 
 

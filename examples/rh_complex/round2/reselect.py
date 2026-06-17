@@ -48,9 +48,45 @@ from _common import (  # noqa: E402
     position_of,
     resolve_center,
     round1_dE,
+    study_wide_dE_by_cid,
 )
 
-ENERGY_LABEL = "round 1  ΔE (kcal/mol)"
+ENERGY_LABEL = r"$E - E_\mathrm{gm}$ (kcal mol$^{-1}$)"
+
+
+def _energy_values(
+    meta,
+    e_df,
+    round1_pos: np.ndarray,
+    sel_idx: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Seed and pick ΔE (kcal/mol) for the energy-coloured plots.
+
+    The round-1 seeds are always coloured by ΔE. Once the round-2 DFT
+    energies exist (:data:`config.ROUND2_ENERGIES_CSV`), both layers are
+    referenced to the study-wide minimum :math:`E_\\mathrm{gm}` and the
+    new picks are coloured on the same scale; before then (the picks have
+    not been relaxed yet) the picks stay magenta (``pick_values`` is
+    ``None``).
+
+    :param meta: Full structure metadata.
+    :param e_df: Round-1 energies DataFrame (:func:`load_round1_energies`).
+    :param round1_pos: Kernel-row positions of round-1 conformers, in
+        ``e_df`` row order.
+    :param sel_idx: Kernel-row positions of the new picks.
+    :returns: ``(seed_values, pick_values)`` aligned with *round1_pos* and
+        *sel_idx*; ``pick_values`` is ``None`` when round-2 energies are
+        not yet available.
+    """
+    if not cfg.ROUND2_ENERGIES_CSV.exists():
+        return round1_dE(e_df), None
+    dE_map = study_wide_dE_by_cid()
+    cids = meta["configuration_id"].to_numpy()
+    seed_vals = np.array([dE_map[int(cids[pos])] for pos in round1_pos], dtype=float)
+    pick_vals = np.array(
+        [dE_map.get(int(cids[pos]), np.nan) for pos in sel_idx], dtype=float
+    )
+    return seed_vals, pick_vals
 
 
 def _build_round2_kernel():
@@ -137,7 +173,7 @@ def select() -> None:
     _write_selection(meta, atoms, sel_idx, p, out_dir, "selected_round2.csv")
     print(f"  ({len(sel_idx)} new + {n_round1} round-1 = {cfg.TOTAL_BUDGET} total)")
 
-    seed_dE = round1_dE(e_df)
+    seed_dE, pick_dE = _energy_values(meta, e_df, preselected, sel_idx)
     plot_selection_2d(p, ev, preselected, sel_idx, out_dir / "selection.png")
     plot_selection_3d(p, ev, preselected, sel_idx, out_dir / "selection_3d.png")
     plot_selection_2d(
@@ -147,6 +183,7 @@ def select() -> None:
         sel_idx,
         out_dir / "selection_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
     )
     plot_selection_3d(
@@ -156,6 +193,7 @@ def select() -> None:
         sel_idx,
         out_dir / "selection_3d_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
     )
     print(f"  Plots         -> {out_dir}/")
@@ -227,7 +265,7 @@ def zoom_select() -> None:
     out_dir = cfg.kernel_dir() / "selection_zoom"
     _write_selection(meta, atoms, sel_idx, p, out_dir, "selected_zoom.csv")
 
-    seed_dE = round1_dE(e_df)
+    seed_dE, pick_dE = _energy_values(meta, e_df, round1_pos, sel_idx)
     plot_selection_2d(
         p,
         ev,
@@ -244,6 +282,7 @@ def zoom_select() -> None:
         sel_idx,
         out_dir / "selection_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
         box=cfg.ZOOM_BOX,
     )
@@ -254,6 +293,7 @@ def zoom_select() -> None:
         sel_idx,
         out_dir / "selection_3d_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
     )
     print(f"  Plots         -> {out_dir}/")
@@ -304,7 +344,7 @@ def nearest_select() -> None:
     out_dir = cfg.kernel_dir() / "selection_nearest"
     _write_selection(meta, atoms, sel_idx, p, out_dir, "selected_nearest.csv")
 
-    seed_dE = round1_dE(e_df)
+    seed_dE, pick_dE = _energy_values(meta, e_df, round1_pos, sel_idx)
     plot_selection_2d(
         p,
         ev,
@@ -328,6 +368,7 @@ def nearest_select() -> None:
         sel_idx,
         out_dir / "selection_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
         center_pos=center_pos,
     )
@@ -338,6 +379,7 @@ def nearest_select() -> None:
         sel_idx,
         out_dir / "selection_3d_energy.png",
         seed_values=seed_dE,
+        pick_values=pick_dE,
         seed_label=ENERGY_LABEL,
         center_pos=center_pos,
     )

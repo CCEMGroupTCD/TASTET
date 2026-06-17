@@ -34,6 +34,7 @@ from tastet.plotting.style import (
     palette,
     savefig,
     set_mpl_style,
+    styled_legend,
 )
 
 # config.py lives in the example root; _common.py lives in round2/.
@@ -42,10 +43,9 @@ sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "round2"))
 import config as cfg  # noqa: E402
 from tastet.io import load_kernel  # noqa: E402
-from _common import activate_round2  # noqa: E402
+from _common import activate_round2, study_wide_dE_by_cid  # noqa: E402
 
-HARTREE_TO_KCAL: float = 627.509474
-ENERGY_LABEL: str = "round 2  ΔE (kcal/mol)"
+ENERGY_LABEL: str = r"$E - E_\mathrm{gm}$ (kcal mol$^{-1}$)"
 
 # Each strategy's selection subfolder and CSV filename.
 STRATEGIES: dict[str, tuple[str, str]] = {
@@ -53,33 +53,6 @@ STRATEGIES: dict[str, tuple[str, str]] = {
     "zoom": ("selection_zoom", "selected_zoom.csv"),
     "nearest": ("selection_nearest", "selected_nearest.csv"),
 }
-
-
-def _dE_by_cid() -> dict[int, float]:
-    """ΔE (kcal/mol) per conformer, referenced to the study-wide minimum.
-
-    Pools the round-1 and round-2 DFT energies and subtracts the single
-    lowest energy across both, so every energy plot in the example shares
-    one zero (the found global minimum, ``conformer_780``).
-
-    :returns: Mapping ``configuration_id -> ΔE`` for all relaxed
-        conformers (round 1 and round 2).
-    :raises SystemExit: If either energy CSV is missing.
-    """
-    for path in (cfg.ENERGIES_CSV, cfg.ROUND2_ENERGIES_CSV):
-        if not path.exists():
-            sys.exit(f"Missing energies CSV: {path}")
-
-    e_all = pd.concat(
-        [pd.read_csv(cfg.ENERGIES_CSV), pd.read_csv(cfg.ROUND2_ENERGIES_CSV)],
-        ignore_index=True,
-    )
-    e_all["configuration_id"] = e_all["file"].apply(
-        lambda s: int(str(s).split("_")[-1])
-    )
-    e = e_all[cfg.ENERGY_COL].to_numpy(dtype=float)
-    dE = (e - e.min()) * HARTREE_TO_KCAL
-    return dict(zip(e_all["configuration_id"].astype(int), dE))
 
 
 def _round2_projections() -> tuple[pd.DataFrame, list[float]]:
@@ -156,8 +129,8 @@ def _plot_2d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     apply_axis_style(ax)
-    ax.legend(frameon=False, loc="best")
-    savefig(fig, out_path, dpi=300)
+    styled_legend(ax, loc="best")
+    savefig(fig, out_path, dpi=300, also_pdf=True)
     plt.close(fig)
 
 
@@ -194,15 +167,15 @@ def _plot_3d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     ax.set_zlabel(rf"kPC#3 ({ev[2]:.1f}%)")
-    ax.legend(frameon=False, loc="upper left")
-    savefig(fig, out_path, dpi=300)
+    styled_legend(ax, loc="upper left")
+    savefig(fig, out_path, dpi=300, also_pdf=True)
     plt.close(fig)
 
 
 def main() -> None:
     """Render energy-coloured round-2 kPCA plots for each strategy."""
     proj, ev = _round2_projections()
-    dE_map = _dE_by_cid()
+    dE_map = study_wide_dE_by_cid()
     out_dir = cfg.kernel_dir() / "analysis"
 
     for label, (subdir, csv_name) in STRATEGIES.items():

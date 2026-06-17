@@ -13,32 +13,38 @@ from matplotlib.markers import MarkerStyle
 
 palette: dict[str, str] = {
     "dark orange": "#D55E00",
-    "orange":      "#E69F00",
-    "yellow":      "#F0E442",
-    "green":       "#019E74",
-    "blue":        "#57B4E9",
-    "dark blue":   "#0072B2",
-    "magenta":     "#CC79A7",
-    "black":       "#000000",
+    "orange": "#E69F00",
+    "yellow": "#F0E442",
+    "green": "#019E74",
+    "blue": "#57B4E9",
+    "dark blue": "#0072B2",
+    "magenta": "#CC79A7",
+    "black": "#000000",
 }
 """Colour-blind-safe palette (Wong, 2011)."""
 
 palette_2: dict[str, str] = {
-    "light green":  "#98DF8A",
-    "light red":    "#FF9896",
-    "grey":         "#7F7F7F",
-    "olive":        "#BCBD22",
-    "light cyan":   "#9EDAE5",
-    "light blue":   "#AEC7E8",
+    "light green": "#98DF8A",
+    "light red": "#FF9896",
+    "grey": "#7F7F7F",
+    "olive": "#BCBD22",
+    "light cyan": "#9EDAE5",
+    "light blue": "#AEC7E8",
     "light orange": "#FFBB78",
-    "teal":         "#17BECF",
-    "blue":         "#1F77B4",
+    "teal": "#17BECF",
+    "blue": "#1F77B4",
 }
 """Extended categorical palette for multi-class line plots."""
 
 cmap = LinearSegmentedColormap.from_list(
     "allowed_gradient",
-    [palette["dark blue"], palette["blue"], palette["green"], palette["yellow"], palette["orange"]],
+    [
+        palette["dark blue"],
+        palette["blue"],
+        palette["green"],
+        palette["yellow"],
+        palette["orange"],
+    ],
     N=256,
 )
 
@@ -52,9 +58,11 @@ def _make_minus_formatter(fmt: str = ".1f"):
     :returns: A formatter callable suitable for
         :class:`matplotlib.ticker.FuncFormatter`.
     """
+
     def _formatter(x, _pos=None) -> str:
         s = format(x, fmt)
         return s.replace("-", _MINUS)
+
     return _formatter
 
 
@@ -77,14 +85,16 @@ def set_mpl_style(
     plt.rcParams["font.sans-serif"] = list(font_sans)
     plt.rcParams["pdf.fonttype"] = pdf_fonttype
 
-    plt.rcParams.update({
-        "font.size": base_fontsize,
-        "axes.labelsize": base_fontsize,
-        "xtick.labelsize": base_fontsize,
-        "ytick.labelsize": base_fontsize,
-        "legend.fontsize": base_fontsize,
-        "axes.titlesize": base_fontsize,
-    })
+    plt.rcParams.update(
+        {
+            "font.size": base_fontsize,
+            "axes.labelsize": base_fontsize,
+            "xtick.labelsize": base_fontsize,
+            "ytick.labelsize": base_fontsize,
+            "legend.fontsize": base_fontsize,
+            "axes.titlesize": base_fontsize,
+        }
+    )
 
 
 def apply_axis_style(
@@ -106,7 +116,9 @@ def apply_axis_style(
         stripped (so both ``"%.2f"`` and ``".2f"`` work).
     :param yfmt: Format spec for y-axis major ticks.
     """
-    ax.tick_params(which="major", direction="out", top=False, right=False, length=5, width=1.0)
+    ax.tick_params(
+        which="major", direction="out", top=False, right=False, length=5, width=1.0
+    )
     ax.tick_params(which="minor", direction="out", length=3, width=1.0)
 
     if use_minor_x:
@@ -115,8 +127,12 @@ def apply_axis_style(
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
 
     # Apply numeric format + long minus
-    ax.xaxis.set_major_formatter(FuncFormatter(_make_minus_formatter(xfmt.replace("%", ""))))
-    ax.yaxis.set_major_formatter(FuncFormatter(_make_minus_formatter(yfmt.replace("%", ""))))
+    ax.xaxis.set_major_formatter(
+        FuncFormatter(_make_minus_formatter(xfmt.replace("%", "")))
+    )
+    ax.yaxis.set_major_formatter(
+        FuncFormatter(_make_minus_formatter(yfmt.replace("%", "")))
+    )
 
     # Round caps for tick marks (major & minor)
     for axis in (ax.xaxis, ax.yaxis):
@@ -130,7 +146,24 @@ def apply_axis_style(
             plt.setp(minors, marker=MarkerStyle(m0, capstyle="round"))
 
 
-def savefig(fig, path: Path, dpi: int = 300) -> None:
+def styled_legend(ax, **kwargs):
+    """Add a legend with the project frame styling.
+
+    Draws a framed legend with rounded corners (``fancybox``) over a
+    semi-transparent background (``framealpha``), so overlaid points
+    remain faintly visible through it. Any keyword overrides the
+    defaults (e.g. ``loc``).
+
+    :param ax: Target axes.
+    :param kwargs: Overrides forwarded to :meth:`matplotlib.axes.Axes.legend`.
+    :returns: The created :class:`matplotlib.legend.Legend`.
+    """
+    opts = {"frameon": True, "fancybox": True, "framealpha": 0.8, "loc": "best"}
+    opts.update(kwargs)
+    return ax.legend(**opts)
+
+
+def savefig(fig, path: Path, dpi: int = 300, *, also_pdf: bool = False) -> None:
     """Save a figure at a fixed canvas size.
 
     Deliberately omits ``bbox_inches="tight"`` so that every figure is
@@ -144,7 +177,11 @@ def savefig(fig, path: Path, dpi: int = 300) -> None:
     :param dpi: Resolution in dots per inch. The default of ``300`` is the
         canonical figure resolution; callers that want lighter diagnostic
         images (e.g. distance histograms) pass a lower value explicitly.
+    :param also_pdf: When ``True``, additionally write a vector ``.pdf``
+        sibling next to *path* (publication-ready, editable text).
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=dpi, transparent=False, pad_inches=0.0)
+    if also_pdf:
+        fig.savefig(path.with_suffix(".pdf"), transparent=False, pad_inches=0.0)

@@ -23,6 +23,7 @@ from tastet.plotting.style import (
     palette,
     savefig,
     set_mpl_style,
+    styled_legend,
 )
 
 # config.py lives in the example root, one level up from round2/.
@@ -99,6 +100,35 @@ def round1_dE(e_df: pd.DataFrame) -> np.ndarray:
     """
     e = e_df[cfg.ENERGY_COL].to_numpy(dtype=float)
     return (e - e.min()) * HARTREE_TO_KCAL
+
+
+def study_wide_dE_by_cid() -> dict[int, float]:
+    """ΔE (kcal/mol) per conformer, referenced to the study-wide minimum.
+
+    Pools the round-1 and round-2 DFT energies and subtracts the single
+    lowest absolute energy across both (the found global minimum
+    :math:`E_\\mathrm{gm}`), so every energy figure in the example shares
+    one zero. Used to colour both the round-1 seeds and the round-2 picks
+    on a single shared colourbar.
+
+    :returns: Mapping ``configuration_id -> ΔE`` for all relaxed
+        conformers (round 1 and round 2).
+    :raises SystemExit: If either energy CSV is missing.
+    """
+    for path in (cfg.ENERGIES_CSV, cfg.ROUND2_ENERGIES_CSV):
+        if not path.exists():
+            sys.exit(f"Missing energies CSV: {path}")
+
+    e_all = pd.concat(
+        [pd.read_csv(cfg.ENERGIES_CSV), pd.read_csv(cfg.ROUND2_ENERGIES_CSV)],
+        ignore_index=True,
+    )
+    e_all["configuration_id"] = e_all["file"].apply(
+        lambda s: int(str(s).split("_")[-1])
+    )
+    e = e_all[cfg.ENERGY_COL].to_numpy(dtype=float)
+    dE = (e - e.min()) * HARTREE_TO_KCAL
+    return dict(zip(e_all["configuration_id"].astype(int), dE))
 
 
 def in_box(p: np.ndarray, box: dict) -> np.ndarray:
@@ -209,6 +239,28 @@ def resolve_center(meta: pd.DataFrame, e_df: pd.DataFrame) -> tuple[int, int]:
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _shared_norm(
+    seed_values: np.ndarray | None,
+    pick_values: np.ndarray | None,
+) -> tuple[float | None, float | None]:
+    """Common ``(vmin, vmax)`` spanning the seed and pick colour values.
+
+    Pools whichever of *seed_values* / *pick_values* are provided so the
+    round-1 seeds and the round-2 picks share one colourbar scale.
+    ``NaN`` entries are ignored.
+
+    :param seed_values: Round-1 colour values, or ``None``.
+    :param pick_values: Round-2 pick colour values, or ``None``.
+    :returns: ``(vmin, vmax)``, or ``(None, None)`` when no values are
+        given (matplotlib then auto-scales each artist).
+    """
+    vals = [v for v in (seed_values, pick_values) if v is not None]
+    if not vals:
+        return None, None
+    pooled = np.concatenate([np.asarray(v, dtype=float).ravel() for v in vals])
+    return float(np.nanmin(pooled)), float(np.nanmax(pooled))
+
+
 def plot_selection_2d(
     p: np.ndarray,
     ev: np.ndarray,
@@ -217,6 +269,7 @@ def plot_selection_2d(
     save_path: Path | str,
     *,
     seed_values: np.ndarray | None = None,
+    pick_values: np.ndarray | None = None,
     seed_label: str = "",
     box: dict | None = None,
     center_pos: int | None = None,
@@ -233,11 +286,16 @@ def plot_selection_2d(
     :param ev: Explained-variance percentages, length ``>=2``.
     :param preselected: Kernel-row positions of round-1 conformers.
     :param sel_idx: Kernel-row positions of new picks.
-    :param save_path: PNG output path.
+    :param save_path: PNG output path. A vector ``.pdf`` sibling is
+        written alongside it.
     :param seed_values: Optional per-round-1 scalar for the colorbar
         (e.g. dE in kcal/mol). When given, the round-1 layer is
         coloured with the project gradient cmap; otherwise round-1 is
         drawn in ``palette["dark blue"]``.
+    :param pick_values: Optional per-pick scalar (e.g. round-2 dE). When
+        given, the new picks are coloured by the same gradient cmap and
+        share the colourbar normalisation with *seed_values*; otherwise
+        they are drawn as ``palette["magenta"]`` stars.
     :param seed_label: Colorbar label.
     :param box: Optional ``ZOOM_BOX``-style dict; when given, a dashed
         rectangle is overlaid for the kpc1 × kpc2 bounds (kpc3 ignored
@@ -249,6 +307,10 @@ def plot_selection_2d(
     """
     set_mpl_style()
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
+
+    # Shared colour normalisation across seeds + energy-coloured picks, so
+    # both layers read against one colourbar (the study-wide ΔE scale).
+    vmin, vmax = _shared_norm(seed_values, pick_values)
 
     # Background: all conformers (recessive).
     ax.scatter(
@@ -268,6 +330,8 @@ def plot_selection_2d(
             p[preselected, 1],
             c=seed_values,
             cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             s=60,
             alpha=0.9,
             edgecolors="none",
@@ -289,19 +353,35 @@ def plot_selection_2d(
             label=f"round 1 ({len(preselected)})",
         )
 
-    # Top layer: new picks.
+    # Top layer: new picks — coloured by energy if available, else magenta.
     if len(sel_idx):
-        ax.scatter(
-            p[sel_idx, 0],
-            p[sel_idx, 1],
-            marker="*",
-            c=palette["magenta"],
-            s=120,
-            edgecolors=palette["black"],
-            linewidth=0.5,
-            zorder=4,
-            label=f"new ({len(sel_idx)})",
-        )
+        if pick_values is not None:
+            ax.scatter(
+                p[sel_idx, 0],
+                p[sel_idx, 1],
+                marker="*",
+                c=pick_values,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                s=120,
+                edgecolors=palette["black"],
+                linewidth=0.5,
+                zorder=4,
+                label=f"new ({len(sel_idx)})",
+            )
+        else:
+            ax.scatter(
+                p[sel_idx, 0],
+                p[sel_idx, 1],
+                marker="*",
+                c=palette["magenta"],
+                s=120,
+                edgecolors=palette["black"],
+                linewidth=0.5,
+                zorder=4,
+                label=f"new ({len(sel_idx)})",
+            )
 
     # Optional centre marker (open black ring around the dot).
     if center_pos is not None:
@@ -346,9 +426,9 @@ def plot_selection_2d(
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     apply_axis_style(ax)
-    ax.legend(frameon=False, loc="best")
+    styled_legend(ax, loc="best")
 
-    savefig(fig, Path(save_path), dpi=300)
+    savefig(fig, Path(save_path), dpi=300, also_pdf=True)
     plt.close(fig)
 
 
@@ -360,6 +440,7 @@ def plot_selection_3d(
     save_path: Path | str,
     *,
     seed_values: np.ndarray | None = None,
+    pick_values: np.ndarray | None = None,
     seed_label: str = "",
     center_pos: int | None = None,
 ) -> None:
@@ -385,8 +466,13 @@ def plot_selection_3d(
     :param ev: Explained-variance percentages, length ``>=3``.
     :param preselected: Kernel-row positions of round-1 conformers.
     :param sel_idx: Kernel-row positions of new picks.
-    :param save_path: PNG output path.
+    :param save_path: PNG output path. A vector ``.pdf`` sibling is
+        written alongside it.
     :param seed_values: Optional per-round-1 scalar for the colorbar.
+    :param pick_values: Optional per-pick scalar (e.g. round-2 dE). When
+        given, the new picks are coloured by the same gradient cmap and
+        share the colourbar normalisation with *seed_values*; otherwise
+        they are drawn as ``palette["magenta"]`` stars.
     :param seed_label: Colorbar label.
     :param center_pos: Optional kernel-row index of a point of interest
         (used by ``nearest_select``). When given, drawn as an open
@@ -396,6 +482,9 @@ def plot_selection_3d(
     set_mpl_style()
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111, projection="3d")
+
+    # Shared colour normalisation across seeds + energy-coloured picks.
+    vmin, vmax = _shared_norm(seed_values, pick_values)
 
     # Background: small, faint, so it doesn't occlude.
     ax.scatter(
@@ -418,6 +507,8 @@ def plot_selection_3d(
             p[preselected, 2],
             c=seed_values,
             cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             s=80,
             alpha=0.95,
             edgecolors=palette["black"],
@@ -442,20 +533,38 @@ def plot_selection_3d(
             label=f"round 1 ({len(preselected)})",
         )
 
-    # Top layer: new picks, made larger so they survive the depth sort.
+    # Top layer: new picks, made larger so they survive the depth sort —
+    # coloured by energy if available, else magenta.
     if len(sel_idx):
-        ax.scatter(
-            p[sel_idx, 0],
-            p[sel_idx, 1],
-            p[sel_idx, 2],
-            marker="*",
-            c=palette["magenta"],
-            s=180,
-            edgecolors=palette["black"],
-            linewidth=0.6,
-            depthshade=False,
-            label=f"new ({len(sel_idx)})",
-        )
+        if pick_values is not None:
+            ax.scatter(
+                p[sel_idx, 0],
+                p[sel_idx, 1],
+                p[sel_idx, 2],
+                marker="*",
+                c=pick_values,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                s=180,
+                edgecolors=palette["black"],
+                linewidth=0.6,
+                depthshade=False,
+                label=f"new ({len(sel_idx)})",
+            )
+        else:
+            ax.scatter(
+                p[sel_idx, 0],
+                p[sel_idx, 1],
+                p[sel_idx, 2],
+                marker="*",
+                c=palette["magenta"],
+                s=180,
+                edgecolors=palette["black"],
+                linewidth=0.6,
+                depthshade=False,
+                label=f"new ({len(sel_idx)})",
+            )
 
     # Optional centre marker.
     if center_pos is not None:
@@ -475,8 +584,8 @@ def plot_selection_3d(
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")
     ax.set_ylabel(rf"kPC#2 ({ev[1]:.1f}%)")
     ax.set_zlabel(rf"kPC#3 ({ev[2]:.1f}%)")
-    ax.legend(frameon=False, loc="upper left")
+    styled_legend(ax, loc="upper left")
 
-    savefig(fig, Path(save_path), dpi=300)
+    savefig(fig, Path(save_path), dpi=300, also_pdf=True)
     # plt.show()  # uncomment to drag/rotate the 3-D window (blocks until closed)
     plt.close(fig)
