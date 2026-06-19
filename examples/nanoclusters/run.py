@@ -2,11 +2,10 @@
 
 Usage::
 
-    python run.py db                       # 1. build master database
-    python run.py subsample                # 2. (optional) create subset
-    python run.py grid_search              # 3. (optional) sweep hyperparameters
-    python run.py soap kernel kpca         # 4. single-config pipeline
-    python run.py select                   # 5. select structures for DFT
+    python run.py db                       # 1. build database from the runs
+    python run.py grid_search              # 2. (optional) sweep on energy-balanced subset
+    python run.py soap kernel kpca         # 3. single-config pipeline on all structures
+    python run.py select                   # 4. select structures for DFT
     python run.py help
 """
 
@@ -52,7 +51,7 @@ from ase.io import write
 import config as cfg
 
 # Use-case specific
-from prepare import ensure_database, subsample, resolve_channel_soap
+from prepare import ensure_database, load_grid_search_structures, resolve_channel_soap
 
 
 warnings.filterwarnings(
@@ -71,6 +70,33 @@ warnings.filterwarnings(
 warnings.filterwarnings(
     "ignore", message="divide by zero encountered in divide", category=RuntimeWarning
 )
+
+
+# Energy-coloured plots use ``E - E_gm`` (relative to the study minimum),
+# matching the y-axis of analysis/energy_profile.py.
+ENERGY_LABEL: str = r"$E - E_{\mathrm{gm}}$ (eV)"
+
+
+def _relative_energy(meta: pd.DataFrame) -> np.ndarray:
+    """Surrogate energies shifted to the global minimum ``E_gm``.
+
+    Returns ``E - E_gm`` where ``E`` is the raw potential energy of each
+    structure (the ``energy_eV`` column written by
+    :func:`prepare._build_database`) and ``E_gm`` is the lowest such
+    energy across the whole set. ``E_gm`` is the *only* reference used —
+    energies are not referenced to any bulk/surface reservoir. Every
+    energy-coloured plot uses this so they share one zero.
+
+    These are the surrogate energies of the full 10k set — *not* the DFT
+    energies of the selected structures, which live in
+    ``cfg.ENERGIES_SELECTED_CSV`` and are used only by
+    ``analysis/energy_profile.py``. The two are never mixed here.
+
+    :param meta: Metadata for the full set (must hold ``energy_eV``).
+    :returns: ``energy_eV - energy_eV.min()`` in eV.
+    """
+    e = meta["energy_eV"].values
+    return e - e.min()
 
 
 # ── Combined-kernel output helper ────────────────────────────────────
@@ -129,13 +155,8 @@ def _save_combined_distance_outputs(
 
 
 def _db() -> None:
-    """Build / update the master database from the configured runs."""
+    """Build / update the database from the configured per-run trajectories."""
     ensure_database()
-
-
-def _subsample() -> None:
-    """Create an energy-balanced subset database from the master."""
-    subsample()
 
 
 def _grid_search() -> None:
@@ -146,11 +167,14 @@ def _grid_search() -> None:
     single-kernel sweep via :func:`tastet.pipeline.grid_search_step`,
     both scored by :class:`~tastet.metrics.cka.CKAScorer` against the
     formation energies.
+
+    The grid search runs on the energy-balanced subset returned by
+    :func:`prepare.load_grid_search_structures`, not the full database.
     """
-    atoms, meta = load_atoms_and_meta(cfg.db_path())
+    atoms, meta = load_grid_search_structures()
     ids = meta["configuration_id"].values
     scorer = CKAScorer(target_kernel=cfg.CKA_TARGET_KERNEL)
-    target = meta["formation_energy"].values
+    target = meta["energy_eV"].values
 
     if getattr(cfg, "USE_TENSOR_PRODUCT", False):
         grid_search_multichannel_step(
@@ -303,7 +327,11 @@ def _kernel() -> None:
 
 
 def _kpca() -> None:
-    """Run kPCA, colouring projections by formation energy.
+    """Run kPCA, colouring projections by ``E - E_gm`` (surrogate energy).
+
+    Colours use :func:`_relative_energy` (surrogate energies shifted to
+    the study minimum ``E_gm``), so the scale matches
+    ``analysis/energy_profile.py``.
 
     The combined kernel goes through :func:`tastet.pipeline.kpca_step`
     (2-D + 3-D). In multi-channel mode each per-channel kernel is also
@@ -311,14 +339,14 @@ def _kpca() -> None:
     kernel directory.
     """
     _, meta = load_atoms_and_meta(cfg.db_path())
-    color_values = meta["formation_energy"].values
+    color_values = _relative_energy(meta)
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
         kpca_step(
             cfg,
             meta,
             color_values=color_values,
-            color_label="Formation energy (eV)",
+            color_label=ENERGY_LABEL,
         )
         return
 
@@ -359,7 +387,7 @@ def _kpca() -> None:
         plot_kpca(
             result,
             color_values=color_values,
-            color_label="Formation energy (eV)",
+            color_label=ENERGY_LABEL,
             save=plot_path,
             show=show,
         )
@@ -371,7 +399,7 @@ def _kpca() -> None:
         cfg,
         meta,
         color_values=color_values,
-        color_label="Formation energy (eV)",
+        color_label=ENERGY_LABEL,
     )
 
 
@@ -383,17 +411,22 @@ def _select() -> None:
     :func:`tastet.pipeline.select_step`), then adds a full-view kPCA plot
     with the selections highlighted and exports VASP POSCARs.
     """
+    _, meta = load_atoms_and_meta(cfg.db_path())
+    show = getattr(cfg, "SHOW", False)
+    color_values = _relative_energy(meta)
+
     # ── 1. Run selection (filtered pool + selection.png) ─────────────
+    # Both the filter and the colour scale are on E - E_gm: the
+    # threshold is relative (energy_relative=True), and the colour is the
+    # pre-shifted surrogate energy.
     select_step(
         cfg,
         energy_max=cfg.SELECTION_ENERGY_MAX,
-        energy_col="formation_energy",
-        color_values_col="formation_energy",
-        color_label="Formation energy (eV)",
+        energy_col="energy_eV",
+        energy_relative=True,
+        color_values=color_values,
+        color_label=ENERGY_LABEL,
     )
-
-    _, meta = load_atoms_and_meta(cfg.db_path())
-    show = getattr(cfg, "SHOW", False)
 
     # ── 2. Full-view kPCA with selections highlighted ────────────────
     full_plot_path = cfg.selection_dir() / "selection_full.png"
@@ -412,8 +445,8 @@ def _select() -> None:
             idx_pool=np.arange(len(proj_df)),
             selected_indices=selected_indices,
             explained_variance_pct=ev_pct,
-            color_values=meta["formation_energy"].values,
-            color_label="Formation energy (eV)",
+            color_values=color_values,
+            color_label=ENERGY_LABEL,
             save_path=full_plot_path,
             show=show,
         )
@@ -439,7 +472,6 @@ def _select() -> None:
 
 STEPS: dict[str, callable] = {
     "db": _db,
-    "subsample": _subsample,
     "grid_search": _grid_search,
     "soap": _soap,
     "kernel": _kernel,
@@ -450,20 +482,20 @@ STEPS: dict[str, callable] = {
 USAGE: str = """\
 Available steps:
 
-  1.  db             Build / update the master database.
-  2.  subsample      (Optional) Create an energy-balanced subset.
-  3.  grid_search    Sweep SOAP × kernel parameters.  When
-                     USE_TENSOR_PRODUCT = True, sweeps per-channel grids
-                     and combines; otherwise single-kernel sweep with CKA.
-                     Subject to MAX_GRID_COMBINATIONS.
-  4.  soap           Compute SOAP.  When USE_TENSOR_PRODUCT = True,
+  1.  db             Build / update the database from the per-run trajectories.
+  2.  grid_search    Sweep SOAP × kernel parameters on an energy-balanced
+                     subset of the database.  When USE_TENSOR_PRODUCT = True,
+                     sweeps per-channel grids and combines; otherwise
+                     single-kernel sweep with CKA.  Subject to
+                     MAX_GRID_COMBINATIONS.
+  3.  soap           Compute SOAP.  When USE_TENSOR_PRODUCT = True,
                      computes one SOAP per channel (hash-keyed path).
-  5.  kernel         Build kernel matrix + distance histogram + KDE overlay
+  4.  kernel         Build kernel matrix + distance histogram + KDE overlay
                      + pairwise CSV.  When USE_TENSOR_PRODUCT = True,
                      computes per-channel kernels and combines them.
-  6.  kpca           Run kPCA (coloured by formation energy), save
+  5.  kpca           Run kPCA (coloured by formation energy), save
                      projections + 2-D and 3-D plots.
-  7.  select         Select representative structures for DFT.
+  6.  select         Select representative structures for DFT.
                      Produces selection.png (filtered pool),
                      selection_full.png (full kPCA), and POSCARs.
 

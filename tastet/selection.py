@@ -108,6 +108,7 @@ def select_structures(
     *,
     energy_max: float | None = None,
     energy_col: str | None = None,
+    energy_relative: bool = False,
     k: int = 10,
     method: Literal["kmedoids", "fps"] = "kmedoids",
     seed: int = 42,
@@ -120,6 +121,10 @@ def select_structures(
         *None* = no filtering (all structures are candidates).
     :param energy_col: Column name for the energy filter.  Required when
         *energy_max* is set.
+    :param energy_relative: When *True*, the threshold is applied to the
+        column shifted to its own minimum, i.e. keep structures with
+        ``energy - energy.min() <= energy_max``. Lets *energy_max* be
+        expressed on an ``E - E_gm`` scale while the column stays raw.
     :param k: Number of representatives.
     :param method: ``"kmedoids"`` or ``"fps"``.
     :param seed: Random state.
@@ -145,11 +150,16 @@ def select_structures(
             raise ValueError("energy_col is required when energy_max is set.")
         if energy_col not in meta.columns:
             raise KeyError(f"Column {energy_col!r} not found in metadata.")
-        mask = meta[energy_col].values <= energy_max
+        values = meta[energy_col].values
+        label = energy_col
+        if energy_relative:
+            values = values - values.min()
+            label = f"{energy_col} - E_gm"
+        mask = values <= energy_max
         idx_pool = np.where(mask)[0]
         print(
             f"  Energy filter: {mask.sum()}/{len(meta)} structures "
-            f"with {energy_col} ≤ {energy_max}"
+            f"with {label} ≤ {energy_max}"
         )
     else:
         idx_pool = np.arange(len(meta))

@@ -14,10 +14,11 @@ from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────────
 USE_CASE_DIR: Path = Path(__file__).resolve().parent
+INPUT_DIR: Path = USE_CASE_DIR / "input"
 OUTPUT_ROOT: Path = USE_CASE_DIR / "output"
 
 # ── Analysis naming ──────────────────────────────────────────────────
-ANALYSIS_NAME: str = "new_all_1L"
+ANALYSIS_NAME: str = "production"
 
 # ── Seed ─────────────────────────────────────────────────────────────
 SEED: int = 42
@@ -85,21 +86,18 @@ FIXED_SOAP_KW: dict = dict(
 SOAP_GRID: dict = dict(
     r_cut=[3.0, 4.0, 5.0],
     sigma=[0.1, 0.5],
-    n_max=[4, 6],
-    l_max=[4, 6],
+    n_max=[4, 6, 8],  # includes the production n_max=8
+    l_max=[4, 6, 8],
 )
 
+# RBF gamma uses the median heuristic (``"median"``), resolved per SOAP
+# descriptor by tastet.kernel.resolve_kernel_params so each representation
+# gets a scale-appropriate gamma rather than a hardcoded value.
 KERNEL_GRID = [
     dict(method="average", metric="linear"),
     dict(method="rematch", metric="linear", alpha=0.1),
-    dict(method="average", metric="rbf", gamma=1.0),
-    dict(method="average", metric="rbf", gamma=5.0),
-    dict(method="rematch", metric="rbf", gamma=1.0, alpha=0.1),
-    dict(method="rematch", metric="rbf", gamma=5.0, alpha=0.1),
-    dict(method="average", metric="polynomial", degree=2, gamma=1.0, coef0=0.0),
-    dict(
-        method="rematch", metric="polynomial", degree=2, gamma=1.0, coef0=0.0, alpha=0.1
-    ),
+    dict(method="average", metric="rbf", gamma="median"),
+    dict(method="rematch", metric="rbf", gamma="median", alpha=0.1),
 ]
 
 # CKA scorer target kernel for the (supervised) grid search.  The target
@@ -164,7 +162,12 @@ KERNEL_WEIGHTS: list[float] | None = None
 
 
 # ── Structure selection ──────────────────────────────────────────────
-SELECTION_ENERGY_MAX: float = 15.0  # filter on formation_energy before selecting
+# Before FPS, keep only structures within this energy of the global
+# minimum, i.e. E - E_gm ≤ SELECTION_ENERGY_MAX (E_gm = lowest surrogate
+# formation energy over the whole set).  4.51 eV reproduces the same
+# pool the study used (the old 15.0 eV absolute-formation-energy cutoff;
+# E_gm ≈ 10.49 eV, so 15.0 - E_gm ≈ 4.51).
+SELECTION_ENERGY_MAX: float = 4.51
 SELECTION_K: int = 30
 SELECTION_METHOD: str = "fps"
 SELECTION_XYZ_TEMPLATE: str = "structure_{id}.xyz"
@@ -177,17 +180,27 @@ KERNEL_KDE_BANDWIDTH: float = 0.02
 #  USE-CASE-SPECIFIC — Cu clusters on surface
 # =====================================================================
 
-# ── Subsampling ──────────────────────────────────────────────────────
-# To build an energy-balanced subset, set ANALYSIS_NAME to a new name
-# (so db_path() differs from master_db_path()) and run the 'subsample'
-# step.  With ANALYSIS_NAME == MASTER_ANALYSIS_NAME the working DB *is*
-# the master and 'subsample' is a no-op.
-MASTER_ANALYSIS_NAME: str = "new_all_1L"
-N_SUBSAMPLE: int = 50
+# ── Grid-search subsampling ──────────────────────────────────────────
+# The grid search runs on an energy-balanced subset drawn on the fly
+# from the production database by ``prepare.load_grid_search_structures``
+# (inverse-density sampling that over-represents rare energy regions).
+# The draw is fully determined by ``GRID_SEARCH_N_SAMPLES`` / ``NUM_BINS``
+# / ``SEED``, so it is reproducible without persisting a separate subset.
+GRID_SEARCH_N_SAMPLES: int = 50
 NUM_BINS: int = 5
 
 # ── Input data ───────────────────────────────────────────────────────
-RUNS_DIR: Path = USE_CASE_DIR / "input_runs"
+# Raw concatenated trajectory of all GOFFE runs (the committed source of
+# truth).  ``input/split_trajectory.py`` splits it into one flat
+# per-run trajectory ``<run_name>.traj`` inside ``RUNS_DIR``, which is
+# what ``prepare._build_database`` reads.
+RUNS_DIR: Path = INPUT_DIR
+ALL_RUNS_TRAJ: Path = INPUT_DIR / "all_runs.traj"
+
+# DFT energies of the FPS-selected structures (selection order), used by
+# ``analysis/energy_profile.py`` to validate the surrogate.  Committed
+# input, parallel to rh_complex's ``energies_round1.csv``.
+ENERGIES_SELECTED_CSV: Path = INPUT_DIR / "energies_selected.csv"
 
 TARGET_RUNS: list[str] = [
     "run_000_n1000_1L",
@@ -201,32 +214,6 @@ TARGET_RUNS: list[str] = [
     "run_008_n1000_1L",
     "run_009_n1000_1L",
 ]
-
-E_SURFACE_2L: float = -274.2128
-E_SURFACE_1L: float = -132.4813
-E_CU_BULK: float = -3.73
-
-
-def n_layers_from_dirname(dir_name: str) -> int:
-    """Parse ``"1L"`` / ``"2L"`` from a run directory name.
-
-    :param dir_name: Run directory name, e.g. ``"run_000_n1000_1L"``.
-    :returns: Number of layers (1 or 2).
-    :raises ValueError: If the layer count cannot be parsed.
-    """
-    for part in dir_name.split("_"):
-        if part.endswith("L") and part[:-1].isdigit():
-            return int(part[:-1])
-    raise ValueError(f"Cannot parse layer count from {dir_name}")
-
-
-def surface_energy(dir_name: str) -> float:
-    """Return the DFT surface energy for a given run.
-
-    :param dir_name: Run directory name.
-    :returns: Surface energy in eV.
-    """
-    return E_SURFACE_2L if n_layers_from_dirname(dir_name) == 2 else E_SURFACE_1L
 
 
 # =====================================================================
@@ -286,7 +273,8 @@ def combined_kernel_tag() -> str:
 
     :returns: ``f"{combine}_{8-char-hash}"``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     blob = json.dumps(
         {
@@ -305,7 +293,8 @@ def grid_search_tag() -> str:
 
     :returns: 8-character hex hash.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     if _use_channels():
         blob = json.dumps(
@@ -349,7 +338,8 @@ def channel_soap_tag(ch: dict) -> str:
     :param ch: One entry from ``KERNEL_CHANNELS``.
     :returns: A directory name like ``rcut4.0_sig0.1_n8_l4_aabbccdd``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     p = ch["soap"]
     base = (
@@ -382,7 +372,8 @@ def channel_kernel_tag(ch: dict) -> str:
     :param ch: One entry from ``KERNEL_CHANNELS``.
     :returns: A directory name like ``average_linear_eeff0011``.
     """
-    import hashlib, json
+    import hashlib
+    import json
 
     k = ch["kernel"]
     method = k.get("method", "?")
@@ -510,16 +501,6 @@ def db_path() -> Path:
 def csv_path() -> Path:
     """CSV mirror of the active database."""
     return analysis_dir() / "structures.csv"
-
-
-def master_db_path() -> Path:
-    """ASE database for the master analysis (before subsampling)."""
-    return OUTPUT_ROOT / MASTER_ANALYSIS_NAME / "structures.db"
-
-
-def subsample_meta_path() -> Path:
-    """JSON file recording subsampling settings."""
-    return analysis_dir() / "subsample_settings.json"
 
 
 def soap_path() -> Path:

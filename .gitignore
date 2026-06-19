@@ -47,6 +47,15 @@ examples/**
 !examples/nanoclusters/run.py
 !examples/nanoclusters/prepare.py
 
+!examples/nanoclusters/input/
+# Committed source of truth.  The per-run trajectories (input/run_*.traj)
+# are derived from it by split_trajectory.py and stay untracked.
+!examples/nanoclusters/input/all_runs.traj
+!examples/nanoclusters/input/split_trajectory.py
+!examples/nanoclusters/input/energies_selected.csv
+!examples/nanoclusters/analysis/
+!examples/nanoclusters/analysis/*.py
+
 !examples/rh_complex/config.py
 !examples/rh_complex/run.py
 !examples/rh_complex/prepare.py

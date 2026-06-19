@@ -18,14 +18,20 @@ from tastet.soap_utils import compute_soap
 from tastet.kernel import compute_kernel, resolve_kernel_params
 from tastet.kpca import fit_kpca
 from tastet.io import (
-    save_soap, load_soap, save_kernel, load_kernel, load_atoms_and_meta,
+    save_soap,
+    load_soap,
+    save_kernel,
+    load_kernel,
+    load_atoms_and_meta,
 )
 from tastet.distance import pairwise_dataframe, pairwise_distances
 from tastet.metrics import Scorer
 from tastet.plotting import plot_kpca, plot_kpca_3d
 from tastet.plotting.heatmap import plot_grid_heatmaps
 from tastet.plotting.distance import (
-    plot_distance_histogram, plot_distance_histogram_kde, plot_grid_histograms,
+    plot_distance_histogram,
+    plot_distance_histogram_kde,
+    plot_grid_histograms,
 )
 from tastet.sweep import run_sweep, save_results
 
@@ -117,7 +123,9 @@ def _maybe_distance_outputs(cfg, ids: np.ndarray | list) -> None:
 
 
 def _save_distance_outputs(
-    cfg, K: np.ndarray, ids: np.ndarray | list,
+    cfg,
+    K: np.ndarray,
+    ids: np.ndarray | list,
 ) -> None:
     """Save distance histogram, KDE overlay, and pairwise CSV.
 
@@ -305,20 +313,20 @@ def grid_search_step(
         )
         print(f"  Heatmaps     -> {cfg.grid_search_heatmap_path()}")
     else:
-        print(f"No target provided — skipping scorer heatmaps.")
+        print("No target provided — skipping scorer heatmaps.")
 
     # ── 2. Distance distributions (always) ───────────────────────────
     _grid_distributions(
-        cfg, atoms_list, ids,
+        cfg,
+        atoms_list,
+        ids,
         fixed_soap_kw=fixed_soap_kw or {},
     )
 
     # ── 3. Persist config snapshot ───────────────────────────────────
     # Resolve the species that were actually used (auto-inferred when
     # not set explicitly — important to record for reproducibility).
-    resolved_species = sorted({
-        s for a in atoms_list for s in a.get_chemical_symbols()
-    })
+    resolved_species = sorted({s for a in atoms_list for s in a.get_chemical_symbols()})
     fixed_with_species = dict(fixed_soap_kw or {})
     fixed_with_species.setdefault("species", resolved_species)
 
@@ -359,10 +367,14 @@ def _grid_distributions(
 
     # Expand SOAP grid into list-of-dicts
     soap_keys = list(soap_grid.keys())
-    soap_combos = [
-        dict(zip(soap_keys, vals))
-        for vals in product(*(soap_grid[k] for k in soap_keys))
-    ] if soap_keys else [{}]
+    soap_combos = (
+        [
+            dict(zip(soap_keys, vals))
+            for vals in product(*(soap_grid[k] for k in soap_keys))
+        ]
+        if soap_keys
+        else [{}]
+    )
 
     kernel_entries: list[dict] = []
     pair_frames: list[pd.DataFrame] = []
@@ -432,7 +444,9 @@ def select_step(
     *,
     energy_max: float | None = None,
     energy_col: str | None = None,
+    energy_relative: bool = False,
     color_values_col: str | None = None,
+    color_values: np.ndarray | None = None,
     color_label: str = "",
     show: bool | None = None,
 ) -> None:
@@ -458,8 +472,18 @@ def select_step(
         filter.
     :param energy_col: Column name for the energy filter. Required when
         *energy_max* is set.
+    :param energy_relative: When *True*, apply *energy_max* to the
+        column shifted to its own minimum (``E - E_gm``) rather than to
+        its raw values. Forwarded to
+        :func:`tastet.selection.select_structures`.
     :param color_values_col: Column in the projections CSV to use for
-        colouring the plot. ``None`` = palette-blue scatter.
+        colouring the plot. ``None`` = palette-blue scatter. Ignored
+        when *color_values* is given.
+    :param color_values: Explicit per-point colour values (one per row
+        of the projections CSV, in the same order). Takes precedence
+        over *color_values_col*; use it to colour by a derived quantity
+        that is not stored as a column (e.g. an energy shifted to the
+        global minimum).
     :param color_label: Colorbar label.
     :param show: Whether to display the plot interactively. ``None``
         (default) falls back to ``cfg.SHOW``.
@@ -480,7 +504,9 @@ def select_step(
             sys.exit(f"Missing {label}: {path}.  Run earlier steps first.")
 
     from tastet.selection import (
-        select_structures, plot_selection, plot_selection_3d,
+        select_structures,
+        plot_selection,
+        plot_selection_3d,
     )
 
     proj_df = pd.read_csv(cfg.kpca_csv_path())
@@ -493,6 +519,7 @@ def select_step(
         proj_df,
         energy_max=energy_max,
         energy_col=energy_col,
+        energy_relative=energy_relative,
         k=cfg.SELECTION_K,
         method=cfg.SELECTION_METHOD,
         seed=cfg.SEED,
@@ -516,7 +543,8 @@ def select_step(
         ase_write(str(xyz_dir / template.format(id=cid)), atoms)
     print(f"  XYZ files    -> {xyz_dir}/  ({len(cids)} files, template '{template}')")
 
-    color_values = proj_df[color_values_col].values if color_values_col else None
+    if color_values is None and color_values_col:
+        color_values = proj_df[color_values_col].values
 
     # ── 2-D plot ────────────────────────────────────────────────────
     plot_2d = cfg.selection_plot_path()
