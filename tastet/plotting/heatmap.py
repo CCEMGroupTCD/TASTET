@@ -44,20 +44,25 @@ from tastet.plotting.style import set_mpl_style, savefig, cmap as project_cmap
 # panel titles use the same symbols (no trailing units; units belong
 # in colorbar labels, not in axis labels for parameter sweeps).
 DEFAULT_LABEL_MAP: dict[str, str] = {
-    "n_max":  r"$n_{\max}$",
-    "l_max":  r"$l_{\max}$",
-    "r_cut":  r"$r_{\mathrm{cut}}$",
-    "sigma":  r"$\sigma$",
-    "alpha":  r"$\alpha$",
-    "gamma":  r"$\gamma$",
+    "n_max": r"$n_{\max}$",
+    "l_max": r"$l_{\max}$",
+    "r_cut": r"$r_{\mathrm{cut}}$",
+    "sigma": r"$\sigma$",
+    "alpha": r"$\alpha$",
+    "gamma": r"$\gamma$",
     "degree": r"$d$",
-    "cka":    "CKA",
+    "cka": "CKA",
 }
 
 # Preferred order when two numeric columns have the same number of
 # unique values.  Earlier = more likely to land on an axis.
 _AXIS_PRIORITY: list[str] = [
-    "r_cut", "sigma", "n_max", "l_max", "gamma", "alpha",
+    "r_cut",
+    "sigma",
+    "n_max",
+    "l_max",
+    "gamma",
+    "alpha",
 ]
 
 
@@ -83,6 +88,7 @@ def _pretty_label(col: str, label_map: Mapping[str, str] | None) -> str:
 # Layout inference
 # ------------------------------------------------------------------
 
+
 def _is_numeric_column(series: pd.Series) -> bool:
     """True if *series* holds numeric values.
 
@@ -107,7 +113,9 @@ def _is_numeric_column(series: pd.Series) -> bool:
 
 
 def _is_derived_column(
-    df: pd.DataFrame, col: str, predictors: list[str],
+    df: pd.DataFrame,
+    col: str,
+    predictors: list[str],
 ) -> bool:
     """True if *col* is a deterministic function of *predictors*.
 
@@ -195,7 +203,8 @@ def infer_heatmap_layout(
             if col in derived_set:
                 continue
             predictors = [
-                c for c in (numeric_cols + categorical_varying)
+                c
+                for c in (numeric_cols + categorical_varying)
                 if c != col and c not in derived_set
             ]
             if _is_derived_column(df, col, predictors):
@@ -203,8 +212,7 @@ def infer_heatmap_layout(
                 changed = True
 
     independent_numeric = [
-        (col, n_unique) for col, n_unique in numeric_varying
-        if col not in derived_set
+        (col, n_unique) for col, n_unique in numeric_varying if col not in derived_set
     ]
     derived_numeric = [c for c in numeric_cols if c in derived_set]
 
@@ -222,8 +230,7 @@ def infer_heatmap_layout(
     def _sort_key(item: tuple[str, int]) -> tuple[int, int]:
         col, n_unique = item
         priority = (
-            _AXIS_PRIORITY.index(col)
-            if col in _AXIS_PRIORITY else len(_AXIS_PRIORITY)
+            _AXIS_PRIORITY.index(col) if col in _AXIS_PRIORITY else len(_AXIS_PRIORITY)
         )
         return (-n_unique, priority)
 
@@ -231,16 +238,79 @@ def infer_heatmap_layout(
 
     x_col = independent_numeric[0][0]
     y_col = independent_numeric[1][0]
-    group_by = (
-        [col for col, _ in independent_numeric[2:]] + categorical_varying
-    )
+    group_by = [col for col, _ in independent_numeric[2:]] + categorical_varying
 
     return x_col, y_col, group_by
 
 
 # ------------------------------------------------------------------
+# Panel selection
+# ------------------------------------------------------------------
+
+
+def select_spread_panels(
+    df: pd.DataFrame,
+    value: str,
+    group_by: list[str],
+    *,
+    n_panels: int = 4,
+) -> list[tuple]:
+    """Choose ``group_by`` keys whose panels span the range of *value*.
+
+    Distils a many-panel sweep to a representative few for a figure. The
+    selection always includes the panel holding the single
+    highest-*value* cell and the panel holding the single lowest, then
+    fills the remaining slots by **greedy maximin dispersion** of the
+    panel means: each new panel is the one whose mean is farthest (in the
+    smallest gap) from every panel already chosen. This spreads the
+    panels across the colour range *and* never adds a near-duplicate
+    while a more distinct panel remains — important when the extremes
+    happen to share a mean (e.g. the global maximum and minimum both fall
+    in the same kind of wide-range panel), which would otherwise let an
+    even-spacing rule pick visually identical panels.
+
+    :param df: Sweep results, one row per cell.
+    :param value: Score column the panels are coloured by.
+    :param group_by: Two or more columns whose unique combinations
+        define panels (e.g. the output of :func:`infer_heatmap_layout`).
+    :param n_panels: Number of panels to select.
+    :returns: ``n_panels`` group-key tuples, ordered by ascending panel
+        mean.
+    :raises ValueError: If the sweep has fewer than *n_panels* panels.
+    """
+    means = df.groupby(group_by, dropna=False)[value].mean()
+    if len(means) < n_panels:
+        raise ValueError(
+            f"Need ≥ {n_panels} panels to select from, found {len(means)}."
+        )
+
+    def _key(row: pd.Series) -> tuple:
+        return tuple(row[c] for c in group_by)
+
+    # Seed with both extremes (deduplicated: the global max and min can
+    # land in the same panel).
+    selected: list[tuple] = []
+    for key in (_key(df.loc[df[value].idxmin()]), _key(df.loc[df[value].idxmax()])):
+        if key not in selected:
+            selected.append(key)
+
+    # Greedily add the panel that maximises its smallest mean-gap to the
+    # panels already chosen.
+    while len(selected) < n_panels:
+        chosen = means.loc[selected].to_numpy()
+        gaps = means.drop(index=selected).map(
+            lambda m: float(np.min(np.abs(chosen - m)))
+        )
+        selected.append(gaps.idxmax())
+
+    # Ascending panel mean so the selection reads low-to-high.
+    return sorted(selected, key=lambda k: means.loc[k])
+
+
+# ------------------------------------------------------------------
 # Tick styling
 # ------------------------------------------------------------------
+
 
 def _apply_heatmap_ticks(ax, x_vals, y_vals) -> None:
     """Place fixed major ticks at every cell centre with ``%g`` labels.
@@ -254,21 +324,29 @@ def _apply_heatmap_ticks(ax, x_vals, y_vals) -> None:
 
     ax.xaxis.set_major_locator(FixedLocator(x_pos))
     ax.xaxis.set_major_formatter(
-        FixedFormatter([f"{v:g}" if isinstance(v, (int, float)) else str(v) for v in x_vals]),
+        FixedFormatter(
+            [f"{v:g}" if isinstance(v, (int, float)) else str(v) for v in x_vals]
+        ),
     )
     ax.yaxis.set_major_locator(FixedLocator(y_pos))
     ax.yaxis.set_major_formatter(
-        FixedFormatter([f"{v:g}" if isinstance(v, (int, float)) else str(v) for v in y_vals]),
+        FixedFormatter(
+            [f"{v:g}" if isinstance(v, (int, float)) else str(v) for v in y_vals]
+        ),
     )
     ax.tick_params(
-        axis="both", which="both",
-        direction="out", top=False, right=False,
+        axis="both",
+        which="both",
+        direction="out",
+        top=False,
+        right=False,
     )
 
 
 # ------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------
+
 
 def plot_grid_heatmaps(
     df: pd.DataFrame,
@@ -381,7 +459,8 @@ def plot_grid_heatmaps(
     fig_w = figsize_per_panel[0] * n_cols
     fig_h = figsize_per_panel[1] * n_rows
     fig, axes = plt.subplots(
-        n_rows, n_cols,
+        n_rows,
+        n_cols,
         figsize=(fig_w, fig_h),
         squeeze=False,
         constrained_layout=True,
@@ -391,7 +470,11 @@ def plot_grid_heatmaps(
         r, c = divmod(idx, n_cols)
         ax = axes[r][c]
 
-        sub = grouped.get_group(key if isinstance(key, tuple) else (key,)) if grouped is not None else df
+        sub = (
+            grouped.get_group(key if isinstance(key, tuple) else (key,))
+            if grouped is not None
+            else df
+        )
 
         pivot = sub.pivot_table(index=y, columns=x, values=value, aggfunc="max")
         pivot = pivot.reindex(index=y_vals, columns=x_vals)
@@ -459,6 +542,7 @@ def plot_grid_heatmaps(
 # Internal helpers
 # ------------------------------------------------------------------
 
+
 def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
     """Write each cell's value at its centre, ``"N/A"`` for NaN cells.
 
@@ -477,9 +561,24 @@ def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
         for xi in range(n_x):
             val = grid[yi, xi]
             if np.isnan(val):
-                ax.text(xi, yi, "N/A", ha="center", va="center",
-                        fontsize=7, color="red", fontweight="bold")
+                ax.text(
+                    xi,
+                    yi,
+                    "N/A",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="red",
+                    fontweight="bold",
+                )
             else:
                 luminance = norm(val)
-                ax.text(xi, yi, f"{val:{fmt}}", ha="center", va="center",
-                        fontsize=7, color="white" if luminance < 0.45 else "black")
+                ax.text(
+                    xi,
+                    yi,
+                    f"{val:{fmt}}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white" if luminance < 0.45 else "black",
+                )
