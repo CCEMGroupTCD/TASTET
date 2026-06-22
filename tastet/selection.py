@@ -300,6 +300,7 @@ def plot_selection(
     color_label: str = "",
     save_path: Path | str | None = None,
     show: bool = False,
+    also_pdf: bool = False,
 ) -> tuple[Figure, Axes]:
     """kPCA scatter showing the filtered pool with selections highlighted.
 
@@ -324,6 +325,8 @@ def plot_selection(
     :param color_label: Colorbar label.
     :param save_path: Save figure here. ``None`` skips saving.
     :param show: Call ``plt.show()``.
+    :param also_pdf: Additionally write a vector ``.pdf`` sibling next to
+        *save_path* (publication-ready). Ignored when *save_path* is ``None``.
     :returns: ``(fig, ax)``.
     """
     set_mpl_style()
@@ -378,7 +381,7 @@ def plot_selection(
     apply_axis_style(ax)
 
     if save_path:
-        savefig(fig, save_path)
+        savefig(fig, save_path, also_pdf=also_pdf)
     if show:
         plt.show()
     return fig, ax

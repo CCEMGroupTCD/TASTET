@@ -449,6 +449,7 @@ def _select() -> None:
             color_label=ENERGY_LABEL,
             save_path=full_plot_path,
             show=show,
+            also_pdf=True,
         )
         print(f"  Full plot    -> {full_plot_path}")
 
