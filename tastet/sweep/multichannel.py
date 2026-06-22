@@ -57,7 +57,7 @@ def grid_search_multichannel_step(
     :param cfg: Config module (needs ``grid_search_*`` paths,
         ``KERNEL_COMBINE``, optionally ``KERNEL_WEIGHTS`` /
         ``MAX_GRID_COMBINATIONS``).
-    :param atoms_list: Structures to featurise (e.g. the labelled subset).
+    :param atoms_list: Structures to featurize (e.g. the labeled subset).
     :param ids: Structure identifiers, one per element of *atoms_list*.
     :param channels: Channel definitions (e.g. ``cfg.KERNEL_CHANNELS``),
         each optionally carrying ``soap_grid`` / ``kernel_grid``.
@@ -66,7 +66,7 @@ def grid_search_multichannel_step(
     :param target: Target array passed to the scorer (e.g. energies),
         aligned with *atoms_list*. ``None`` for unsupervised.
     :param resolve_channel_soap: Callable mapping a channel dict to its
-        SOAP kwargs (resolving SMARTS centres etc.). Defaults to
+        SOAP kwargs (resolving SMARTS centers etc.). Defaults to
         ``dict(channel["soap"])``.
     :returns: ``None``.
     """

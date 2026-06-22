@@ -3,7 +3,7 @@
 Builds the CKA target from the round-1 DFT energies and runs a grid
 search (single- or multi-channel, per ``USE_TENSOR_PRODUCT``) scoring
 each SOAP × kernel combination by its agreement with the energies. The
-ranking justifies the re-optimised representation recorded in
+ranking justifies the re-optimized representation recorded in
 ``config.ROUND2_KERNEL_CHANNELS``.
 
 Outputs land under the round-2 namespace
@@ -41,14 +41,14 @@ def cka_grid() -> None:
 
     Loads ``cfg.ENERGIES_CSV``, builds the target as
     ``E (Ha) − min(E (Ha))`` — offset purely for numerical safety, CKA
-    is invariant to affine target transforms because the centred target
+    is invariant to affine target transforms because the centered target
     kernel is unchanged — and dispatches to either
     :func:`tastet.pipeline.grid_search_step` (single-kernel mode) or
     :func:`tastet.sweep.multichannel.grid_search_multichannel_step`
     (multi-channel mode), passing a :class:`~tastet.metrics.cka.CKAScorer`
     parameterised by :attr:`config.CKA_TARGET_KERNEL`.
 
-    The supervised sweep restricts itself to the labelled subset
+    The supervised sweep restricts itself to the labeled subset
     (round-1 conformers) so the heatmap reflects only what the energies
     can score.
     """
@@ -65,14 +65,14 @@ def cka_grid() -> None:
         target_full[pos_of[int(cid)]] = e_i
 
     mask = ~np.isnan(target_full)
-    labelled_idx = np.where(mask)[0]
-    labelled_atoms = [atoms[i] for i in labelled_idx]
-    labelled_ids = meta["configuration_id"].iloc[labelled_idx].to_numpy()
+    labeled_idx = np.where(mask)[0]
+    labeled_atoms = [atoms[i] for i in labeled_idx]
+    labeled_ids = meta["configuration_id"].iloc[labeled_idx].to_numpy()
     target = target_full[mask]
     target = target - target.min()
 
     print(
-        f"CKA target: {len(labelled_ids)} labelled conformers from {cfg.ENERGIES_CSV.name}"
+        f"CKA target: {len(labeled_ids)} labeled conformers from {cfg.ENERGIES_CSV.name}"
     )
 
     scorer = CKAScorer(target_kernel=cfg.CKA_TARGET_KERNEL)
@@ -80,8 +80,8 @@ def cka_grid() -> None:
     if cfg._use_channels():
         grid_search_multichannel_step(
             cfg,
-            labelled_atoms,
-            labelled_ids,
+            labeled_atoms,
+            labeled_ids,
             channels=cfg.KERNEL_CHANNELS,
             scorer=scorer,
             target=target,
@@ -96,8 +96,8 @@ def cka_grid() -> None:
             fixed_kw["centers"] = centers
         grid_search_step(
             cfg=cfg,
-            atoms_list=labelled_atoms,
-            ids=labelled_ids,
+            atoms_list=labeled_atoms,
+            ids=labeled_ids,
             scorer=scorer,
             target=target,
             fixed_soap_kw=fixed_kw,

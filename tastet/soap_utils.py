@@ -25,7 +25,7 @@ def compute_soap(
 ) -> list[np.ndarray]:
     """Compute per-structure SOAP feature matrices.
 
-    :param atoms_list: Structures to featurise.
+    :param atoms_list: Structures to featurize.
     :param species: Chemical species for the SOAP basis. If ``None``, species
         are inferred from ``atoms_list`` using all elements present. When set to
         a subset of elements present in the structures, atoms of unlisted
@@ -36,27 +36,27 @@ def compute_soap(
     :param n_max: Number of radial basis functions.
     :param l_max: Maximum degree of spherical harmonics.
     :param sigma: Width of the Gaussian smearing.
-    :param center_atoms: Restrict SOAP centres to atoms with these element
+    :param center_atoms: Restrict SOAP centers to atoms with these element
         symbols, resolved independently for each structure.
-    :param centers: Restrict SOAP centres to these atom indices, using the same
+    :param centers: Restrict SOAP centers to these atom indices, using the same
         indices for every structure. Takes precedence over ``center_atoms``.
     :param average: DScribe averaging mode, for example ``"off"``,
         ``"inner"``, or ``"outer"``.
-    :param normalize: If ``True``, L2-normalise each per-atom SOAP vector to
+    :param normalize: If ``True``, L2-normalize each per-atom SOAP vector to
         unit length before returning. This can improve numerical stability for
         some kernels, for example REMatch with non-linear metrics.
     :param n_jobs: Number of parallel jobs. Use ``-1`` for all available cores.
     :returns: One feature matrix per structure, each with shape
-        ``(n_centres, n_features)``.
+        ``(n_centers, n_features)``.
     :rtype: list[numpy.ndarray]
     :raises ValueError: If no input structures are provided, or if any
-        structure has no SOAP centres after applying ``center_atoms``,
+        structure has no SOAP centers after applying ``center_atoms``,
         ``centers``, and ``species``.
     """
     atoms_list = list(atoms_list)
 
     if not atoms_list:
-        raise ValueError("No structures were provided for SOAP featurisation.")
+        raise ValueError("No structures were provided for SOAP featurization.")
 
     if species is None:
         species = sorted(
@@ -110,7 +110,7 @@ def compute_soap(
 
         if not target_indices:
             raise ValueError(
-                f"No SOAP centres found in structure index {idx}. "
+                f"No SOAP centers found in structure index {idx}. "
                 "This would make the SOAP list shorter than the input "
                 "structure list and break row alignment. Check "
                 "``center_atoms``, ``centers``, and ``species``."
@@ -132,7 +132,7 @@ def compute_soap(
 
 
 def _l2_normalize(features: np.ndarray) -> np.ndarray:
-    """Row-wise L2 normalisation (each SOAP vector → unit length).
+    """Row-wise L2 normalization (each SOAP vector → unit length).
 
     Zero-norm rows are left as zeros to avoid division by zero.
     """

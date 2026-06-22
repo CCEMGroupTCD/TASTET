@@ -51,7 +51,7 @@ tastet/
 ├── distance.py      # kernel-induced distance distributions
 ├── selection.py     # diverse structure selection (FPS / k-medoids)
 ├── pipeline.py      # shared db/soap/kernel/kpca/grid_search/select steps
-├── cka.py           # centred kernel alignment scoring
+├── cka.py           # centered kernel alignment scoring
 ├── metrics/         # scorer protocol + CKA scorer
 ├── sweep/           # SOAP × kernel grid search (single- and multi-channel)
 └── plotting/        # kPCA scatter, heatmaps, distance plots, styling

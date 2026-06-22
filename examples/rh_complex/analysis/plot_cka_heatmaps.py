@@ -10,11 +10,11 @@ four panels, chosen for spread rather than at random:
 * the panel holding the single **lowest**-CKA cell;
 * two intermediate panels whose *mean* CKA is closest to evenly spaced
   targets across the range of panel means, so the four panels differ in
-  overall colour instead of clustering at one end of the scale.
+  overall color instead of clustering at one end of the scale.
 
-Axes (core vs. periphery :math:`r_{\\mathrm{cut}}`) and the shared colour
+Axes (core vs. periphery :math:`r_{\\mathrm{cut}}`) and the shared color
 scale are taken from the full grid via
-:func:`tastet.plotting.heatmap.infer_heatmap_layout`; the colour limits
+:func:`tastet.plotting.heatmap.infer_heatmap_layout`; the color limits
 span the **whole** grid-search CKA range so the two extreme panels show
 the true global maximum and minimum. Styling follows
 :mod:`tastet.plotting.heatmap` / :mod:`tastet.plotting.style`, matching
@@ -149,7 +149,7 @@ def _render(results_csv: Path, out_path: Path) -> None:
             channels.append(prefix)
     methods = {ch: df[f"{ch}__method"].iloc[0] for ch in channels}
 
-    # Colour limits from the full grid so the extreme panels show the
+    # Color limits from the full grid so the extreme panels show the
     # true global maximum and minimum.
     fig = plot_grid_heatmaps(
         sub,

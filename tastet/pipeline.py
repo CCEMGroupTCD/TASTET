@@ -41,10 +41,10 @@ def soap_step(cfg, atoms_list: list, **extra_soap_kw) -> None:
 
     :param cfg: Config module (needs ``db_path``, ``soap_path``, ``soap_tag``,
         ``SOAP_PARAMS``).
-    :param atoms_list: Structures to featurise.
+    :param atoms_list: Structures to featurize.
     :param extra_soap_kw: Additional SOAP keyword arguments merged on top
         of ``cfg.SOAP_PARAMS`` (e.g. ``centers=[0, 3, 5]`` for runtime-
-        determined centre indices).
+        determined center indices).
     """
     if not cfg.db_path().exists():
         sys.exit(f"Missing: {cfg.db_path()}.  Run 'db' step first.")
@@ -134,7 +134,7 @@ def _save_distance_outputs(
     everything.
 
     :param cfg: Config module.
-    :param K: Normalised kernel matrix.
+    :param K: Normalized kernel matrix.
     :param ids: Structure identifiers (one per kernel row).
     :returns: ``None``.
     """
@@ -273,7 +273,7 @@ def grid_search_step(
 
     :param cfg: Config module (needs ``grid_search_*`` paths, ``SOAP_GRID``,
         ``KERNEL_GRID``).
-    :param atoms_list: Structures to featurise (e.g. two reference conformers,
+    :param atoms_list: Structures to featurize (e.g. two reference conformers,
         or a subsampled dataset).
     :param ids: Structure identifiers, one per element of *atoms_list*.
     :param scorer: A :class:`~tastet.metrics.Scorer` instance, required only
@@ -352,12 +352,12 @@ def _grid_distributions(
     """Compute and plot distance distributions for every grid combination.
 
     Iterates over ``SOAP_GRID × KERNEL_GRID``, computes SOAP + kernel
-    for each combination, and collects the normalised kernel matrix.
+    for each combination, and collects the normalized kernel matrix.
     Produces a multi-panel histogram figure and a combined CSV of
     per-pair distances across all combinations.
 
     :param cfg: Config module.
-    :param atoms_list: Structures to featurise.
+    :param atoms_list: Structures to featurize.
     :param ids: Structure identifiers, one per element of *atoms_list*.
     :param fixed_soap_kw: Fixed SOAP kwargs (constant across sweep).
     :returns: ``None``.
@@ -477,11 +477,11 @@ def select_step(
         its raw values. Forwarded to
         :func:`tastet.selection.select_structures`.
     :param color_values_col: Column in the projections CSV to use for
-        colouring the plot. ``None`` = palette-blue scatter. Ignored
+        coloring the plot. ``None`` = palette-blue scatter. Ignored
         when *color_values* is given.
-    :param color_values: Explicit per-point colour values (one per row
+    :param color_values: Explicit per-point color values (one per row
         of the projections CSV, in the same order). Takes precedence
-        over *color_values_col*; use it to colour by a derived quantity
+        over *color_values_col*; use it to color by a derived quantity
         that is not stored as a column (e.g. an energy shifted to the
         global minimum).
     :param color_label: Colorbar label.

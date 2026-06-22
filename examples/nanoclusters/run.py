@@ -72,7 +72,7 @@ warnings.filterwarnings(
 )
 
 
-# Energy-coloured plots use ``E - E_gm`` (relative to the study minimum),
+# Energy-colored plots use ``E - E_gm`` (relative to the study minimum),
 # matching the y-axis of analysis/energy_profile.py.
 ENERGY_LABEL: str = r"$E - E_{\mathrm{gm}}$ (eV)"
 
@@ -85,7 +85,7 @@ def _relative_energy(meta: pd.DataFrame) -> np.ndarray:
     :func:`prepare._build_database`) and ``E_gm`` is the lowest such
     energy across the whole set. ``E_gm`` is the *only* reference used —
     energies are not referenced to any bulk/surface reservoir. Every
-    energy-coloured plot uses this so they share one zero.
+    energy-colored plot uses this so they share one zero.
 
     These are the surrogate energies of the full 10k set — *not* the DFT
     energies of the selected structures, which live in
@@ -327,9 +327,9 @@ def _kernel() -> None:
 
 
 def _kpca() -> None:
-    """Run kPCA, colouring projections by ``E - E_gm`` (surrogate energy).
+    """Run kPCA, coloring projections by ``E - E_gm`` (surrogate energy).
 
-    Colours use :func:`_relative_energy` (surrogate energies shifted to
+    Colors use :func:`_relative_energy` (surrogate energies shifted to
     the study minimum ``E_gm``), so the scale matches
     ``analysis/energy_profile.py``.
 
@@ -416,8 +416,8 @@ def _select() -> None:
     color_values = _relative_energy(meta)
 
     # ── 1. Run selection (filtered pool + selection.png) ─────────────
-    # Both the filter and the colour scale are on E - E_gm: the
-    # threshold is relative (energy_relative=True), and the colour is the
+    # Both the filter and the color scale are on E - E_gm: the
+    # threshold is relative (energy_relative=True), and the color is the
     # pre-shifted surrogate energy.
     select_step(
         cfg,
@@ -494,7 +494,7 @@ Available steps:
   4.  kernel         Build kernel matrix + distance histogram + KDE overlay
                      + pairwise CSV.  When USE_TENSOR_PRODUCT = True,
                      computes per-channel kernels and combines them.
-  5.  kpca           Run kPCA (coloured by formation energy), save
+  5.  kpca           Run kPCA (colored by formation energy), save
                      projections + 2-D and 3-D plots.
   6.  select         Select representative structures for DFT.
                      Produces selection.png (filtered pool),

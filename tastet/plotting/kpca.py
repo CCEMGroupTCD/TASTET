@@ -20,11 +20,11 @@ if TYPE_CHECKING:
 
 # Ordered list of distinct hex colors for the categorical legend path
 # (facet, site_type, stability, site_label, …). Drawn from the main
-# colour-blind-safe palette first, then the extended palette_2, so the
-# most distinguishable colours are used before the lighter ones. Built
-# from hex values and de-duplicated, so a colour shared by both
+# color-blind-safe palette first, then the extended palette_2, so the
+# most distinguishable colors are used before the lighter ones. Built
+# from hex values and de-duplicated, so a color shared by both
 # palettes (e.g. a "blue") is only listed once. With ~17 distinct
-# colours this covers the full site-label set without cycling.
+# colors this covers the full site-label set without cycling.
 def _build_categorical_colors() -> list[str]:
     """Order palette colors by mutual contrast, de-duplicated to hex.
 
@@ -37,7 +37,7 @@ def _build_categorical_colors() -> list[str]:
     class counts, de-duplicated so a hue shared by both palettes is
     listed once.
 
-    :returns: Hex colour strings ordered for categorical legends.
+    :returns: Hex color strings ordered for categorical legends.
     """
     # High-contrast lead (mirrors the cmap's blue->orange extremes);
     # the trailing palette.values() is a no-op for the current palette
@@ -85,7 +85,7 @@ def _categorical_color_map(values: np.ndarray) -> dict:
     (so ``facet`` 100 / 111 and ``site_label`` strings always get the
     same colors across runs). Colors are drawn from ``palette`` then
     ``palette_2`` (see :data:`_CATEGORICAL_COLORS`); they only cycle if
-    there are more classes than the ~17 available distinct colours, in
+    there are more classes than the ~17 available distinct colors, in
     which case a warning is emitted since the scatter becomes
     ambiguous.
 
@@ -184,7 +184,7 @@ def _two_legends(
 ):
     """Draw two stacked bottom legends: marker→class and color→class.
 
-    The marker legend uses neutral grey glyphs (shape carries the
+    The marker legend uses neutral gray glyphs (shape carries the
     meaning, not color); the color legend uses filled circles (color
     carries the meaning, not shape). Both sit below the axes,
     horizontally. Returns the number of legend rows reserved so the
@@ -192,11 +192,11 @@ def _two_legends(
     """
     from matplotlib.lines import Line2D
 
-    # Marker legend (top row block): grey glyphs, shape = category.
+    # Marker legend (top row block): gray glyphs, shape = category.
     marker_handles = [
         Line2D([0], [0], marker=m, color="none",
-               markerfacecolor=palette.get("grey", "#7F7F7F")
-               if "grey" in palette else "#7F7F7F",
+               markerfacecolor=palette.get("gray", "#7F7F7F")
+               if "gray" in palette else "#7F7F7F",
                markeredgecolor="none", markersize=8, linestyle="none",
                label=str(val))
         for val, m in marker_map.items()
@@ -249,19 +249,19 @@ def _marker_legend(
     """Draw a single bottom legend mapping marker shape → class.
 
     Companion to the colorbar in the continuous-color + categorical-
-    marker mode: the colorbar carries the (continuous) colour meaning,
-    so only the marker channel needs a legend. Glyphs are neutral grey
-    because shape, not colour, is what this legend explains. Anchored in
+    marker mode: the colorbar carries the (continuous) color meaning,
+    so only the marker channel needs a legend. Glyphs are neutral gray
+    because shape, not color, is what this legend explains. Anchored in
     figure coordinates so the caller's later ``subplots_adjust`` does
     not rescale it. Returns the number of legend rows so the caller can
     size the reserved bottom margin.
     """
     from matplotlib.lines import Line2D
 
-    grey = palette.get("grey", "#7F7F7F")
+    gray = palette.get("gray", "#7F7F7F")
     handles = [
         Line2D([0], [0], marker=m, color="none",
-               markerfacecolor=grey, markeredgecolor="none",
+               markerfacecolor=gray, markeredgecolor="none",
                markersize=8, linestyle="none", label=str(val))
         for val, m in marker_map.items()
     ]
@@ -310,7 +310,7 @@ def _plot_continuous_marker_2d(ax, projections, color_values, marker_values,
                                marker_map, cmap, norm) -> None:
     """Scatter with continuous color + categorical marker (2-D).
 
-    Colour encodes a continuous value (e.g. percent Al, or delta_g)
+    Color encodes a continuous value (e.g. percent Al, or delta_g)
     under a shared *norm*, so a single colorbar stays comparable across
     marker groups; marker shape encodes the categorical channel (e.g.
     site type). One scatter call per marker class, masking on the marker
@@ -400,8 +400,8 @@ def plot_kpca(
     set_mpl_style()
     # Any path that places legend(s) below the axes reserves the margin
     # via subplots_adjust, which is incompatible with constrained_layout.
-    # That covers every coloured path except the lone continuous colorbar
-    # (no marker) and the uncoloured scatter. Enable constrained_layout
+    # That covers every colored path except the lone continuous colorbar
+    # (no marker) and the uncolored scatter. Enable constrained_layout
     # only for those; the rest set their margin manually.
     use_constrained = not (
         color_values is not None and (categorical or marker_values is not None)

@@ -1,4 +1,4 @@
-"""Round-2 step 2 — incremental selection on the re-optimised kernel.
+"""Round-2 step 2 — incremental selection on the re-optimized kernel.
 
 Three strategies, all building (or loading) the round-2 SOAP + kernel via
 the shared ``run._soap`` / ``run._kernel`` wrappers under the round-2
@@ -10,11 +10,11 @@ namespace, then picking new conformers that complement the round-1 set:
   picks :data:`config.ZOOM_K` more from there (FPS seeded by round-1
   in-box, or k-medoids excluding them);
 - ``nearest_select``: picks the :data:`config.ZOOM_K` conformers most
-  similar (normalised-kernel) to a point of interest
+  similar (normalized-kernel) to a point of interest
   (:data:`config.ZOOM_CENTER`, or the lowest-energy round-1 conformer).
 
 Each writes a CSV (``configuration_id`` + kpc1/kpc2/kpc3), one ``.xyz``
-per new pick, and plain + energy-coloured 2-D/3-D kPCA scatters. Run::
+per new pick, and plain + energy-colored 2-D/3-D kPCA scatters. Run::
 
     python round2/reselect.py select
     python round2/reselect.py zoom_select
@@ -60,12 +60,12 @@ def _energy_values(
     round1_pos: np.ndarray,
     sel_idx: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray | None]:
-    """Seed and pick ΔE (kcal/mol) for the energy-coloured plots.
+    """Seed and pick ΔE (kcal/mol) for the energy-colored plots.
 
-    The round-1 seeds are always coloured by ΔE. Once the round-2 DFT
+    The round-1 seeds are always colored by ΔE. Once the round-2 DFT
     energies exist (:data:`config.ROUND2_ENERGIES_CSV`), both layers are
     referenced to the study-wide minimum :math:`E_\\mathrm{gm}` and the
-    new picks are coloured on the same scale; before then (the picks have
+    new picks are colored on the same scale; before then (the picks have
     not been relaxed yet) the picks stay magenta (``pick_values`` is
     ``None``).
 
@@ -143,7 +143,7 @@ def select() -> None:
     Calls :func:`tastet.selection.select_additional` to add picks that
     are farthest (in kernel space) from the round-1 conformers, seeded
     by them. Writes ``selected_round2.csv`` + xyz + four plots (plain
-    and energy-coloured 2-D/3-D) under ``selection_round2/``.
+    and energy-colored 2-D/3-D) under ``selection_round2/``.
     """
     atoms, meta, K, p, ev = _build_round2_kernel()
 
@@ -300,13 +300,13 @@ def zoom_select() -> None:
 
 
 def nearest_select() -> None:
-    """Pick :data:`config.ZOOM_K` conformers most similar to a centre point.
+    """Pick :data:`config.ZOOM_K` conformers most similar to a center point.
 
-    The centre is :data:`config.ZOOM_CENTER` when set, or the
+    The center is :data:`config.ZOOM_CENTER` when set, or the
     lowest-energy round-1 conformer otherwise. Candidates exclude the
-    centre and the rest of round 1. Nearest is the top-``ZOOM_K`` rows of
-    ``K[centre, :]``. Outputs go to ``selection_nearest/`` and mirror
-    :func:`zoom_select` but with the centre ringed instead of a box.
+    center and the rest of round 1. Nearest is the top-``ZOOM_K`` rows of
+    ``K[center, :]``. Outputs go to ``selection_nearest/`` and mirror
+    :func:`zoom_select` but with the center ringed instead of a box.
 
     :raises SystemExit: When :data:`config.ZOOM_CENTER` is set but not
         in the database, or no candidates remain.
@@ -338,7 +338,7 @@ def nearest_select() -> None:
     sims = K[center_pos, sel_idx]
     print(
         f"  Nearest: k={k} around configuration_id={center_cid}.  "
-        f"Similarities to centre in [{sims.min():.3f}, {sims.max():.3f}]"
+        f"Similarities to center in [{sims.min():.3f}, {sims.max():.3f}]"
     )
 
     out_dir = cfg.kernel_dir() / "selection_nearest"
@@ -397,7 +397,7 @@ STEPS = {
 }
 
 USAGE = """\
-Round-2 incremental selection on the re-optimised kernel.
+Round-2 incremental selection on the re-optimized kernel.
 
   select          Seeded-FPS picks to reach TOTAL_BUDGET.
   zoom_select     Pick ZOOM_K structures inside ZOOM_BOX (FPS seeded by

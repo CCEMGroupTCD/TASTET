@@ -14,7 +14,7 @@ class KPCAResult:
 
     :ivar projections: Low-dimensional coordinates.
     :vartype projections: ndarray, shape (N, n_components)
-    :ivar eigenvalues: Eigenvalues of the centred kernel matrix.
+    :ivar eigenvalues: Eigenvalues of the centered kernel matrix.
     :vartype eigenvalues: ndarray, shape (n_components,)
     :ivar explained_variance: Fraction of total variance per component.
     :vartype explained_variance: ndarray, shape (n_components,)
@@ -36,18 +36,18 @@ def fit_kpca(K: np.ndarray, *, n_components: int = 2) -> KPCAResult:
     .. note::
 
         scikit-learn's ``KernelPCA.eigenvalues_`` are the eigenvalues of the
-        centred kernel matrix :math:`H K H`, where
+        centered kernel matrix :math:`H K H`, where
         :math:`H = I - \\frac{1}{N}\\mathbf{1}\\mathbf{1}^T`.
 
         The explained variance returned here divides each retained eigenvalue
-        by :math:`\\operatorname{Tr}(H K H)`, the total centred-kernel
+        by :math:`\\operatorname{Tr}(H K H)`, the total centered-kernel
         variance across all components. Since
 
         :math:`\\operatorname{Tr}(H K H) = \\operatorname{Tr}(K)
         - \\frac{1}{N}\\sum_{ij} K_{ij}`,
 
-        this denominator gives the fraction of total centred-kernel variance,
-        matching the explained-variance label used in plots. Normalising by
+        this denominator gives the fraction of total centered-kernel variance,
+        matching the explained-variance label used in plots. Normalizing by
         only the retained eigenvalues is correct only when all components are
         kept; with truncated ``n_components`` it can overstate the explained
         fraction.
@@ -58,7 +58,7 @@ def fit_kpca(K: np.ndarray, *, n_components: int = 2) -> KPCAResult:
 
     N = K.shape[0]
 
-    # Total variance of the centred kernel, Tr(H K H).
+    # Total variance of the centered kernel, Tr(H K H).
     total_centered_variance = np.trace(K) - (1.0 / N) * np.sum(K)
 
     if total_centered_variance > 0:

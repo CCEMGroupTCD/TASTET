@@ -1,7 +1,7 @@
 """Split the raw GOFFE trajectory into per-run trajectories.
 
 The committed source of truth is ``input/all_runs.traj`` — the
-concatenation of every GOFFE global-optimisation run.  This script
+concatenation of every GOFFE global-optimization run.  This script
 detects run boundaries from energy spikes (each new run restarts from a
 high-energy configuration), then writes one flat trajectory per run,
 ``input/<run_name>.traj``, which :mod:`prepare` reads to build the
@@ -97,7 +97,7 @@ def detect_run_boundaries(energies: np.ndarray, threshold: float) -> list[int]:
 def plot_energy_profile(energies: np.ndarray, boundaries: list[int]) -> None:
     """Plot ``E - E_gm`` across the detected runs and save the figure.
 
-    Each run occupies one equal-width interval on the x-axis, labelled
+    Each run occupies one equal-width interval on the x-axis, labeled
     by integer run number.  The figure is written to
     ``cfg.OUTPUT_ROOT / "energy_profile_runs.png"``.
 

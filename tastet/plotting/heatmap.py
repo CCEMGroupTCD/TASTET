@@ -1,8 +1,8 @@
-"""Heatmap visualisation for SOAP × kernel sweep results.
+"""Heatmap visualization for SOAP × kernel sweep results.
 
 Produces multi-panel figures: one subplot per unique combination of
 the ``group_by`` columns, with the chosen ``x`` / ``y`` columns on
-the axes and cell colour mapped to the score.
+the axes and cell color mapped to the score.
 
 When *x*, *y*, and *group_by* are omitted, :func:`infer_heatmap_layout`
 inspects the DataFrame to choose automatically:
@@ -263,14 +263,14 @@ def select_spread_panels(
     fills the remaining slots by **greedy maximin dispersion** of the
     panel means: each new panel is the one whose mean is farthest (in the
     smallest gap) from every panel already chosen. This spreads the
-    panels across the colour range *and* never adds a near-duplicate
+    panels across the color range *and* never adds a near-duplicate
     while a more distinct panel remains — important when the extremes
     happen to share a mean (e.g. the global maximum and minimum both fall
     in the same kind of wide-range panel), which would otherwise let an
     even-spacing rule pick visually identical panels.
 
     :param df: Sweep results, one row per cell.
-    :param value: Score column the panels are coloured by.
+    :param value: Score column the panels are colored by.
     :param group_by: Two or more columns whose unique combinations
         define panels (e.g. the output of :func:`infer_heatmap_layout`).
     :param n_panels: Number of panels to select.
@@ -294,7 +294,7 @@ def select_spread_panels(
         if key not in selected:
             selected.append(key)
 
-    # Greedily add the panel that maximises its smallest mean-gap to the
+    # Greedily add the panel that maximizes its smallest mean-gap to the
     # panels already chosen.
     while len(selected) < n_panels:
         chosen = means.loc[selected].to_numpy()
@@ -313,7 +313,7 @@ def select_spread_panels(
 
 
 def _apply_heatmap_ticks(ax, x_vals, y_vals) -> None:
-    """Place fixed major ticks at every cell centre with ``%g`` labels.
+    """Place fixed major ticks at every cell center with ``%g`` labels.
 
     :param ax: Target axes.
     :param x_vals: Ordered x-axis cell values.
@@ -372,7 +372,7 @@ def plot_grid_heatmaps(
     """Plot sweep results as heatmaps.
 
     :param df: Sweep output from :func:`~tastet.sweep.engine.run_sweep` or a CSV.
-    :param value: Column name used for the cell colour, typically the score.
+    :param value: Column name used for the cell color, typically the score.
     :param x: Column for the horizontal axis. If ``None``,
         :func:`infer_heatmap_layout` selects a numeric column with high
         variation.
@@ -385,9 +385,9 @@ def plot_grid_heatmaps(
     :param out_path: Path where the figure should be saved.
     :param annotate: Whether to print numeric values inside each cell.
     :param fmt: Format specification used for cell annotations.
-    :param vmin: Lower bound for the colour scale. If omitted, inferred from
+    :param vmin: Lower bound for the color scale. If omitted, inferred from
         ``value``.
-    :param vmax: Upper bound for the colour scale. If omitted, inferred from
+    :param vmax: Upper bound for the color scale. If omitted, inferred from
         ``value``.
     :param cmap: Colormap to use. If ``None``, the project default gradient is
         used.
@@ -420,7 +420,7 @@ def plot_grid_heatmaps(
     # ── Filter to varying group_by columns only ───────────────────
     group_by = [c for c in group_by if df[c].nunique(dropna=True) > 1]
 
-    # ── Resolve colourmap ─────────────────────────────────────────
+    # ── Resolve colormap ─────────────────────────────────────────
     if cmap is None:
         use_cmap = project_cmap
     elif isinstance(cmap, str):
@@ -445,7 +445,7 @@ def plot_grid_heatmaps(
     x_vals = sorted(df[x].dropna().unique())
     y_vals = sorted(df[y].dropna().unique())
 
-    # ── Colour limits ─────────────────────────────────────────────
+    # ── Color limits ─────────────────────────────────────────────
     valid = pd.to_numeric(df[value], errors="coerce").dropna()
     _vmin = float(valid.min()) if len(valid) else 0.0
     _vmax = float(valid.max()) if len(valid) else 1.0
@@ -544,9 +544,9 @@ def plot_grid_heatmaps(
 
 
 def _annotate_cells(ax, grid: np.ndarray, norm, fmt: str) -> None:
-    """Write each cell's value at its centre, ``"N/A"`` for NaN cells.
+    """Write each cell's value at its center, ``"N/A"`` for NaN cells.
 
-    Text colour flips between white and black on the cell luminance so
+    Text color flips between white and black on the cell luminance so
     annotations stay legible across the colormap.
 
     :param ax: Target axes.

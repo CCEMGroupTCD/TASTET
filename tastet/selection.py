@@ -30,7 +30,7 @@ from tastet.plotting.style import (
 
 
 def kernel_to_distance(K: np.ndarray) -> np.ndarray:
-    """Convert a normalised kernel to a distance matrix.
+    """Convert a normalized kernel to a distance matrix.
 
     :param K: Kernel matrix, shape (N, N).
     :returns: Distance matrix, ``d(i,j) = sqrt(K[i,i] - 2K[i,j] + K[j,j])``.
@@ -306,22 +306,22 @@ def plot_selection(
 
     Visually identical to :func:`tastet.plotting.kpca.plot_kpca` for the
     base scatter (same figsize, same marker size and alpha, same
-    palette colour), except that selected structures are overlaid in
+    palette color), except that selected structures are overlaid in
     :data:`palette["magenta"]` at twice the marker size. Reading
     ``selection.png`` next to ``kpca.png`` shows the same point cloud
     with the picks lit up — no other visual difference.
 
-    When *color_values* is provided, the pool is coloured by the
+    When *color_values* is provided, the pool is colored by the
     project gradient (anchored to the full dataset range); the
     overlaid selections stay magenta so they remain visible against any
-    point colour.
+    point color.
 
     :param proj_df: Full projections DataFrame (all structures).
     :param idx_pool: Indices of structures that passed the filter.
     :param selected_indices: Indices of selected structures.
     :param explained_variance_pct: Explained variance per component (%).
     :param color_values: Per-point scalar for the full dataset (not
-        subsetted). ``None`` = solid-colour pool (:data:`palette["blue"]`).
+        subsetted). ``None`` = solid-color pool (:data:`palette["blue"]`).
     :param color_label: Colorbar label.
     :param save_path: Save figure here. ``None`` skips saving.
     :param show: Call ``plt.show()``.
@@ -336,7 +336,7 @@ def plot_selection(
     kpc2 = proj_df["kpc2"].values
 
     if color_values is not None:
-        # Colourbar anchored to full dataset range
+        # Colorbar anchored to full dataset range
         vmin, vmax = float(color_values.min()), float(color_values.max())
         norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
@@ -415,7 +415,7 @@ def plot_selection_3d(
     :param explained_variance_pct: Explained variance per component
         (%); must have at least three entries.
     :param color_values: Per-point scalar for the full dataset (not
-        subsetted). ``None`` = solid-colour pool (:data:`palette["blue"]`).
+        subsetted). ``None`` = solid-color pool (:data:`palette["blue"]`).
     :param color_label: Colorbar label.
     :param save_path: Save figure here. ``None`` skips saving.
     :param show: Call ``plt.show()``.

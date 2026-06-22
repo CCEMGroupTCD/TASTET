@@ -37,7 +37,7 @@ USE_TENSOR_PRODUCT: bool = False
 # ─────────────────────────────────────────────────────────────────────
 #  SINGLE-KERNEL MODE  (used when USE_TENSOR_PRODUCT = False)
 # ─────────────────────────────────────────────────────────────────────
-# normalize: L2-normalise each per-atom SOAP vector to unit length
+# normalize: L2-normalize each per-atom SOAP vector to unit length
 # *before* computing the kernel.  Recommended for REMatch with
 # non-linear metrics (rbf, polynomial) to avoid numerical instability.
 SOAP_PARAMS: dict = dict(
@@ -108,10 +108,10 @@ CKA_TARGET_KERNEL: str = "linear"
 # ─────────────────────────────────────────────────────────────────────
 #  MULTI-CHANNEL KERNEL  (used when USE_TENSOR_PRODUCT = True)
 # ─────────────────────────────────────────────────────────────────────
-# Each channel defines its own SOAP centres/species and kernel type.
+# Each channel defines its own SOAP centers/species and kernel type.
 #
 # centers_from_smarts:
-#   True  → resolve SOAP centres from FLEXIBLE_SMARTS atom indices.
+#   True  → resolve SOAP centers from FLEXIBLE_SMARTS atom indices.
 #   False → use center_atoms from the channel's SOAP dict (or all atoms
 #           if center_atoms is None).
 #
@@ -231,7 +231,7 @@ def _use_channels() -> bool:
 
 
 def _centers_tag() -> str:
-    """Short identifier for the active SOAP centre selection.
+    """Short identifier for the active SOAP center selection.
 
     :returns: Tag like ``"c-Cu"``, ``"c-Cu-Zn"``, or ``"c-all"``.
     """

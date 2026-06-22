@@ -9,10 +9,10 @@ and renders just four panels, chosen for spread rather than at random:
 * the panel holding the single **lowest**-CKA cell;
 * two intermediate panels whose *mean* CKA is closest to evenly spaced
   targets across the range of panel means, so the four panels differ in
-  overall colour instead of clustering at one end of the scale.
+  overall color instead of clustering at one end of the scale.
 
-Axes and the shared colour scale follow the pipeline heatmap (this example
-runs in single-kernel mode, so the axes are two SOAP knobs); the colour
+Axes and the shared color scale follow the pipeline heatmap (this example
+runs in single-kernel mode, so the axes are two SOAP knobs); the color
 limits span the **whole** grid-search CKA range so the two extreme panels
 show the true global maximum and minimum. Panel titles use the compact
 :math:`K^{\\mathrm{method}}_{\\mathrm{metric}}(\\dots)` notation, and
@@ -121,7 +121,7 @@ def _render(results_csv: Path, out_path: Path) -> None:
             f"mean={cells.mean():.3f}  min={cells.min():.3f}  max={cells.max():.3f}"
         )
 
-    # Colour limits from the full grid so the extreme panels show the
+    # Color limits from the full grid so the extreme panels show the
     # true global maximum and minimum.
     fig = plot_grid_heatmaps(
         sub,

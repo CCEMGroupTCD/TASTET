@@ -92,9 +92,9 @@ def compute_kernel(
     :param method: Global kernel type. Must be ``"average"`` or ``"rematch"``.
     :param metric: Pairwise local-environment metric understood by DScribe /
         scikit-learn, for example ``"linear"``, ``"rbf"``, or ``"polynomial"``.
-    :param alpha: REMatch regularisation parameter. Only used when
+    :param alpha: REMatch regularization parameter. Only used when
         ``method == "rematch"``.
-    :param normalize: Whether to normalise the kernel so that diagonal elements
+    :param normalize: Whether to normalize the kernel so that diagonal elements
         satisfy ``K[i, i] == 1``. The default should normally be used.
     :param verbose: Whether to display a progress bar over kernel rows.
     :param metric_kwargs: Additional keyword arguments forwarded to the DScribe
@@ -108,7 +108,7 @@ def compute_kernel(
 
     .. warning::
 
-        Downstream parts of the pipeline assume a normalised kernel with unit
+        Downstream parts of the pipeline assume a normalized kernel with unit
         diagonal. In particular, kernel-induced distances, kernel PCA, and
         structure selection rely on ``K[i, i] == 1``. Set ``normalize=False`` only
         for low-level diagnostics or custom workflows that do not use those
@@ -153,9 +153,9 @@ def combine_kernels(
     weights: Sequence[float] | None = None,
     tol: float = 1e-8,
 ) -> np.ndarray:
-    """Combine pre-normalised kernel matrices into a single kernel.
+    """Combine pre-normalized kernel matrices into a single kernel.
 
-    Each input kernel is assumed to be normalised (diagonal ≈ 1).
+    Each input kernel is assumed to be normalized (diagonal ≈ 1).
     The combined kernel preserves this property when *weights* sum
     to 1 in the ``"weighted_sum"`` case:
 
@@ -172,7 +172,7 @@ def combine_kernels(
     A diagnostic check verifies that the output diagonal is within
     *tol* of 1 and emits a warning otherwise.
 
-    :param kernels: Two or more normalised kernel matrices of the same
+    :param kernels: Two or more normalized kernel matrices of the same
         shape ``(N, N)``.
     :param mode: ``"product"`` for the Hadamard product, ``"sum"`` for
         the element-wise mean, or ``"weighted_sum"`` for a linear
@@ -183,7 +183,7 @@ def combine_kernels(
     :param tol: Tolerance for the diagonal-unity check.
     :returns: Combined kernel matrix, shape ``(N, N)``.
     :raises ValueError: If fewer than one kernel is provided, shapes
-        are inconsistent, *mode* is unrecognised, or weights are
+        are inconsistent, *mode* is unrecognized, or weights are
         missing/mis-sized for ``"weighted_sum"``.
     """
     import warnings
@@ -226,7 +226,7 @@ def combine_kernels(
     if max_dev > tol:
         warnings.warn(
             f"Combined kernel diagonal deviates from 1 by up to {max_dev:.2e} "
-            f"(tol={tol:.0e}).  Check that input kernels are normalised.",
+            f"(tol={tol:.0e}).  Check that input kernels are normalized.",
             stacklevel=2,
         )
 

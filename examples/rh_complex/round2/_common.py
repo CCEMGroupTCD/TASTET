@@ -30,7 +30,7 @@ from tastet.plotting.style import (
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config as cfg  # noqa: E402
 
-# Hartree → kcal/mol, for ΔE colourbars.
+# Hartree → kcal/mol, for ΔE colorbars.
 HARTREE_TO_KCAL: float = 627.509474
 
 
@@ -42,7 +42,7 @@ HARTREE_TO_KCAL: float = 627.509474
 def activate_round2() -> None:
     """Point :mod:`config` at the round-2 output namespace and channels.
 
-    Round 2 uses a separate ``ANALYSIS_NAME`` and its own re-optimised
+    Round 2 uses a separate ``ANALYSIS_NAME`` and its own re-optimized
     ``KERNEL_CHANNELS`` / ``KERNEL_COMBINE`` (the CKA-optimal linear
     representation). Setting them on the shared ``config`` module here
     means the reused ``run._soap`` / ``run._kernel`` wrappers and every
@@ -108,8 +108,8 @@ def study_wide_dE_by_cid() -> dict[int, float]:
     Pools the round-1 and round-2 DFT energies and subtracts the single
     lowest absolute energy across both (the found global minimum
     :math:`E_\\mathrm{gm}`), so every energy figure in the example shares
-    one zero. Used to colour both the round-1 seeds and the round-2 picks
-    on a single shared colourbar.
+    one zero. Used to color both the round-1 seeds and the round-2 picks
+    on a single shared colorbar.
 
     :returns: Mapping ``configuration_id -> ΔE`` for all relaxed
         conformers (round 1 and round 2).
@@ -170,19 +170,19 @@ def nearest_indices(
 ) -> np.ndarray:
     """Return positions of the ``k`` conformers most similar to ``center_pos``.
 
-    Nearest means highest normalised-kernel similarity: the row
+    Nearest means highest normalized-kernel similarity: the row
     ``K[center_pos, :]`` is sorted descending and the top ``k`` entries
-    are taken after filtering out the centre itself and any
+    are taken after filtering out the center itself and any
     ``exclude_positions``. Using the kernel directly is consistent with
     the FPS / k-medoids selectors elsewhere in the package, which all
     reason about distance via the same kernel.
 
-    :param K: Normalised kernel matrix (diagonal = 1).
-    :param center_pos: Row index of the centre conformer.
+    :param K: Normalized kernel matrix (diagonal = 1).
+    :param center_pos: Row index of the center conformer.
     :param exclude_positions: Positions to exclude from candidates
-        (typically the round-1 set; the centre is also excluded
+        (typically the round-1 set; the center is also excluded
         unconditionally).
-    :param k: Number of nearest neighbours to return.
+    :param k: Number of nearest neighbors to return.
     :returns: 1-D array of selected positions, sorted nearest-first.
         Length is ``min(k, candidate_count)``.
     """
@@ -197,14 +197,14 @@ def nearest_indices(
 
 
 def resolve_center(meta: pd.DataFrame, e_df: pd.DataFrame) -> tuple[int, int]:
-    """Resolve the nearest-select centre to a (configuration_id, position) pair.
+    """Resolve the nearest-select center to a (configuration_id, position) pair.
 
     When :data:`config.ZOOM_CENTER` is ``None``, picks the round-1
     conformer with the lowest absolute energy and announces the choice
     on stdout. When ``ZOOM_CENTER`` is set, validates that the
     configuration_id exists in the database (it need not be a round-1
     member; that simply means the candidate exclusion only removes the
-    round-1 set, not the centre via that membership).
+    round-1 set, not the center via that membership).
 
     :param meta: Full structure metadata.
     :param e_df: Round-1 energies DataFrame (output of
@@ -243,14 +243,14 @@ def _shared_norm(
     seed_values: np.ndarray | None,
     pick_values: np.ndarray | None,
 ) -> tuple[float | None, float | None]:
-    """Common ``(vmin, vmax)`` spanning the seed and pick colour values.
+    """Common ``(vmin, vmax)`` spanning the seed and pick color values.
 
     Pools whichever of *seed_values* / *pick_values* are provided so the
-    round-1 seeds and the round-2 picks share one colourbar scale.
+    round-1 seeds and the round-2 picks share one colorbar scale.
     ``NaN`` entries are ignored.
 
-    :param seed_values: Round-1 colour values, or ``None``.
-    :param pick_values: Round-2 pick colour values, or ``None``.
+    :param seed_values: Round-1 color values, or ``None``.
+    :param pick_values: Round-2 pick color values, or ``None``.
     :returns: ``(vmin, vmax)``, or ``(None, None)`` when no values are
         given (matplotlib then auto-scales each artist).
     """
@@ -274,7 +274,7 @@ def plot_selection_2d(
     box: dict | None = None,
     center_pos: int | None = None,
 ) -> None:
-    """Render a 2-D kPCA scatter with three layers + optional centre / box.
+    """Render a 2-D kPCA scatter with three layers + optional center / box.
 
     Follows the project plotting style from
     :mod:`tastet.plotting.style`: project palette / gradient cmap,
@@ -290,11 +290,11 @@ def plot_selection_2d(
         written alongside it.
     :param seed_values: Optional per-round-1 scalar for the colorbar
         (e.g. dE in kcal/mol). When given, the round-1 layer is
-        coloured with the project gradient cmap; otherwise round-1 is
+        colored with the project gradient cmap; otherwise round-1 is
         drawn in ``palette["dark blue"]``.
     :param pick_values: Optional per-pick scalar (e.g. round-2 dE). When
-        given, the new picks are coloured by the same gradient cmap and
-        share the colourbar normalisation with *seed_values*; otherwise
+        given, the new picks are colored by the same gradient cmap and
+        share the colorbar normalization with *seed_values*; otherwise
         they are drawn as ``palette["magenta"]`` stars.
     :param seed_label: Colorbar label.
     :param box: Optional ``ZOOM_BOX``-style dict; when given, a dashed
@@ -308,15 +308,15 @@ def plot_selection_2d(
     set_mpl_style()
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
-    # Shared colour normalisation across seeds + energy-coloured picks, so
-    # both layers read against one colourbar (the study-wide ΔE scale).
+    # Shared color normalization across seeds + energy-colored picks, so
+    # both layers read against one colorbar (the study-wide ΔE scale).
     vmin, vmax = _shared_norm(seed_values, pick_values)
 
     # Background: all conformers (recessive).
     ax.scatter(
         p[:, 0],
         p[:, 1],
-        c="lightgrey",
+        c="lightgray",
         s=60,
         alpha=0.5,
         edgecolors="none",
@@ -353,7 +353,7 @@ def plot_selection_2d(
             label=f"round 1 ({len(preselected)})",
         )
 
-    # Top layer: new picks — coloured by energy if available, else magenta.
+    # Top layer: new picks — colored by energy if available, else magenta.
     if len(sel_idx):
         if pick_values is not None:
             ax.scatter(
@@ -383,7 +383,7 @@ def plot_selection_2d(
                 label=f"new ({len(sel_idx)})",
             )
 
-    # Optional centre marker (open black ring around the dot).
+    # Optional center marker (open black ring around the dot).
     if center_pos is not None:
         ax.scatter(
             [p[center_pos, 0]],
@@ -394,7 +394,7 @@ def plot_selection_2d(
             s=200,
             linewidth=1.5,
             zorder=5,
-            label="centre",
+            label="center",
         )
 
     # Optional ZOOM_BOX rectangle.
@@ -444,11 +444,11 @@ def plot_selection_3d(
     seed_label: str = "",
     center_pos: int | None = None,
 ) -> None:
-    """Render a static 3-D kPCA scatter with three layers + optional centre.
+    """Render a static 3-D kPCA scatter with three layers + optional center.
 
     Background dots are kept deliberately small and faint
     (``s=15``, ``alpha=0.15``) to mitigate matplotlib's 3-D z-sort
-    occlusion of highlighted layers, and the round-1 / picks / centre
+    occlusion of highlighted layers, and the round-1 / picks / center
     layers are bumped to compensate. Even so, mpl batches every point
     across all artists into a single depth-sorted draw list, so for
     proper viewing-angle independence uncomment the ``plt.show()``
@@ -458,7 +458,7 @@ def plot_selection_3d(
     Otherwise follows :mod:`tastet.plotting.kpca` conventions:
     same project palette and gradient cmap as the 2-D companion,
     ``figsize=(6, 4)`` without ``constrained_layout`` (which clips
-    z-labels in mpl_toolkits 3-D), and ``depthshade=False`` so colour
+    z-labels in mpl_toolkits 3-D), and ``depthshade=False`` so color
     isn't washed out by perspective fog. The box overlay is omitted in
     3-D.
 
@@ -470,8 +470,8 @@ def plot_selection_3d(
         written alongside it.
     :param seed_values: Optional per-round-1 scalar for the colorbar.
     :param pick_values: Optional per-pick scalar (e.g. round-2 dE). When
-        given, the new picks are coloured by the same gradient cmap and
-        share the colourbar normalisation with *seed_values*; otherwise
+        given, the new picks are colored by the same gradient cmap and
+        share the colorbar normalization with *seed_values*; otherwise
         they are drawn as ``palette["magenta"]`` stars.
     :param seed_label: Colorbar label.
     :param center_pos: Optional kernel-row index of a point of interest
@@ -483,7 +483,7 @@ def plot_selection_3d(
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111, projection="3d")
 
-    # Shared colour normalisation across seeds + energy-coloured picks.
+    # Shared color normalization across seeds + energy-colored picks.
     vmin, vmax = _shared_norm(seed_values, pick_values)
 
     # Background: small, faint, so it doesn't occlude.
@@ -491,7 +491,7 @@ def plot_selection_3d(
         p[:, 0],
         p[:, 1],
         p[:, 2],
-        c="lightgrey",
+        c="lightgray",
         s=15,
         alpha=0.15,
         edgecolors="none",
@@ -534,7 +534,7 @@ def plot_selection_3d(
         )
 
     # Top layer: new picks, made larger so they survive the depth sort —
-    # coloured by energy if available, else magenta.
+    # colored by energy if available, else magenta.
     if len(sel_idx):
         if pick_values is not None:
             ax.scatter(
@@ -566,7 +566,7 @@ def plot_selection_3d(
                 label=f"new ({len(sel_idx)})",
             )
 
-    # Optional centre marker.
+    # Optional center marker.
     if center_pos is not None:
         ax.scatter(
             [p[center_pos, 0]],
@@ -578,7 +578,7 @@ def plot_selection_3d(
             s=280,
             linewidth=2.0,
             depthshade=False,
-            label="centre",
+            label="center",
         )
 
     ax.set_xlabel(rf"kPC#1 ({ev[0]:.1f}%)")

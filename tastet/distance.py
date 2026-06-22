@@ -1,6 +1,6 @@
 """Kernel-induced distance distribution analysis.
 
-For a normalised kernel (K[i,i] ≈ 1), the squared kernel distance between
+For a normalized kernel (K[i,i] ≈ 1), the squared kernel distance between
 structures *i* and *j* is::
 
     d²(i, j) = K(i,i) + K(j,j) − 2K(i,j) = 2(1 − K(i,j))
@@ -9,7 +9,7 @@ so the kernel-induced distance is::
 
     d(i, j) = √(2(1 − K(i,j)))
 
-Analysing the distribution of *d* values reveals whether a SOAP + kernel
+Analyzing the distribution of *d* values reveals whether a SOAP + kernel
 representation is:
 
 * **too coarse** — all distances ≈ 0 (Dirac delta at 0),
@@ -28,13 +28,13 @@ import pandas as pd
 
 
 D_MAX: float = float(np.sqrt(2.0))
-"""Maximum kernel-induced distance for a normalised kernel: ``√2``."""
+"""Maximum kernel-induced distance for a normalized kernel: ``√2``."""
 
 
 def pairwise_distances(K: np.ndarray) -> np.ndarray:
     """Compute kernel-induced distances for every unique pair.
 
-    :param K: Normalised kernel matrix with diagonal approximately equal to 1.
+    :param K: Normalized kernel matrix with diagonal approximately equal to 1.
     :type K: ndarray, shape (N, N)
     :returns: Distances for each unique pair, where
         :math:`d(i, j) = \sqrt{2(1 - K[i, j])}`.
@@ -55,7 +55,7 @@ def pairwise_dataframe(
 ) -> pd.DataFrame:
     """Build a DataFrame of all unique pairwise distances with structure IDs.
 
-    :param K: Normalised kernel matrix.
+    :param K: Normalized kernel matrix.
     :type K: ndarray, shape (N, N)
     :param ids: Identifier for each structure, for example ``conformer_id``
         from the database. Row order must match ``K``.
@@ -73,9 +73,11 @@ def pairwise_dataframe(
 
     d = pairwise_distances(K)
 
-    df = pd.DataFrame({
-        "id_i": ids[iu_i],
-        "id_j": ids[iu_j],
-        "d":    d,
-    })
+    df = pd.DataFrame(
+        {
+            "id_i": ids[iu_i],
+            "id_j": ids[iu_j],
+            "d": d,
+        }
+    )
     return df.sort_values("d", ascending=False, ignore_index=True)

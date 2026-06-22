@@ -1,6 +1,6 @@
 """Project-wide matplotlib styling: palette, colormap, rcParams, save helper.
 
-Defines the TASTET colour palette and gradient colormap, applies a
+Defines the TASTET color palette and gradient colormap, applies a
 consistent set of rcParams, and provides axis-styling and figure-saving
 helpers used across every plotting module.
 """
@@ -21,12 +21,12 @@ palette: dict[str, str] = {
     "magenta": "#CC79A7",
     "black": "#000000",
 }
-"""Colour-blind-safe palette (Wong, 2011)."""
+"""Color-blind-safe palette (Wong, 2011)."""
 
 palette_2: dict[str, str] = {
     "light green": "#98DF8A",
     "light red": "#FF9896",
-    "grey": "#7F7F7F",
+    "gray": "#7F7F7F",
     "olive": "#BCBD22",
     "light cyan": "#9EDAE5",
     "light blue": "#AEC7E8",

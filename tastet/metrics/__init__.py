@@ -4,7 +4,7 @@ Every scorer follows the same contract::
 
     scorer(K, target) → float | None
 
-where *K* is a precomputed (optionally normalised) kernel matrix and
+where *K* is a precomputed (optionally normalized) kernel matrix and
 *target* is an optional reference array (e.g. energies).  Return
 ``None`` to signal that the score could not be computed.
 """

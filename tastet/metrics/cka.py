@@ -1,4 +1,4 @@
-"""Centred Kernel Alignment scorer."""
+"""Centered Kernel Alignment scorer."""
 
 from __future__ import annotations
 

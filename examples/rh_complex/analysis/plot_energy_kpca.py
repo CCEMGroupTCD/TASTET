@@ -1,11 +1,11 @@
-"""Middle step (round 1.5) — production kPCA coloured by round-1 DFT energies.
+"""Middle step (round 1.5) — production kPCA colored by round-1 DFT energies.
 
 Takes the cached production kPCA projections (the unsupervised round-1
 representation) and overlays the round-1 DFT energies on the conformers
 that were selected and relaxed. This is the visual bridge between
 round 1 (unsupervised selection) and round 2 (energy-supervised CKA
-re-optimisation): it shows how energy is distributed across the round-1
-representation before that signal is used to re-optimise the kernel.
+re-optimization): it shows how energy is distributed across the round-1
+representation before that signal is used to re-optimize the kernel.
 
 Reads ``kpca_projections.csv`` / ``kpca_meta.json`` from the active
 (production) analysis and ``config.ENERGIES_CSV``; writes
@@ -70,20 +70,20 @@ def _load_inputs() -> tuple[pd.DataFrame, list[float], np.ndarray, np.ndarray]:
     dE = proj["configuration_id"].map(dE_by_cid).to_numpy(dtype=float)
     round1_mask = ~np.isnan(dE)
     print(
-        f"Coloured {int(round1_mask.sum())} round-1 conformers by ΔE "
+        f"Colored {int(round1_mask.sum())} round-1 conformers by ΔE "
         f"out of {len(proj)} total."
     )
     return proj, ev, dE, round1_mask
 
 
 def _plot_2d(proj, ev, dE, mask, out_path: Path) -> None:
-    """All conformers grey; round-1 conformers coloured by ΔE (2-D)."""
+    """All conformers gray; round-1 conformers colored by ΔE (2-D)."""
     set_mpl_style()
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
     ax.scatter(
         proj["kpc1"],
         proj["kpc2"],
-        c="lightgrey",
+        c="lightgray",
         s=60,
         alpha=0.5,
         edgecolors="none",
@@ -111,7 +111,7 @@ def _plot_2d(proj, ev, dE, mask, out_path: Path) -> None:
 
 
 def _plot_3d(proj, ev, dE, mask, out_path: Path) -> None:
-    """All conformers grey; round-1 conformers coloured by ΔE (3-D)."""
+    """All conformers gray; round-1 conformers colored by ΔE (3-D)."""
     set_mpl_style()
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111, projection="3d")
@@ -119,7 +119,7 @@ def _plot_3d(proj, ev, dE, mask, out_path: Path) -> None:
         proj["kpc1"],
         proj["kpc2"],
         proj["kpc3"],
-        c="lightgrey",
+        c="lightgray",
         s=15,
         alpha=0.15,
         edgecolors="none",
@@ -149,7 +149,7 @@ def _plot_3d(proj, ev, dE, mask, out_path: Path) -> None:
 
 
 def main() -> None:
-    """Render the energy-coloured production kPCA (2-D + 3-D)."""
+    """Render the energy-colored production kPCA (2-D + 3-D)."""
     proj, ev, dE, mask = _load_inputs()
     out_dir = cfg.kpca_analysis_dir()
     _plot_2d(proj, ev, dE, mask, out_dir / "kpca_energy.png")

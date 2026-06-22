@@ -51,7 +51,7 @@ def ensure_database() -> None:
 def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
     """Load structures for the grid search.
 
-    Behaviour controlled by ``cfg.GRID_SEARCH_N_SAMPLES``:
+    Behavior controlled by ``cfg.GRID_SEARCH_N_SAMPLES``:
 
     * ``None``  → all conformers in the database.
     * ``int``   → randomly subsample that many for speed.
@@ -76,12 +76,12 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
 
 
 def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
-    """Decide which atoms to use as SOAP centres.
+    """Decide which atoms to use as SOAP centers.
 
     Priority:
 
     1. ``center_atoms`` is a non-empty list → return ``None`` (SOAP
-       centres on those species directly; no index list needed).
+       centers on those species directly; no index list needed).
     2. ``FLEXIBLE_SMARTS`` set in config → return a list of 0-based
        indices for the flexible atoms.
     3. Neither → return ``None`` (all atoms).
@@ -89,7 +89,7 @@ def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
     If *both* ``center_atoms`` and ``FLEXIBLE_SMARTS`` are set, a
     warning is issued and ``center_atoms`` takes precedence.
 
-    :param center_atoms: Explicit centre species (including ``None``).
+    :param center_atoms: Explicit center species (including ``None``).
         When left as the ``_UNSET`` sentinel (the default), the value
         is looked up from ``SOAP_PARAMS["center_atoms"]``. Passing it
         explicitly lets callers point at a different source of truth
@@ -110,7 +110,7 @@ def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
             f"{cfg.FLEXIBLE_SMARTS} are set in config.\n"
             f"  → Proceeding with center_atoms={center_atoms}.  "
             f"FLEXIBLE_SMARTS will be ignored.\n"
-            f"  If you intended to use SMARTS-based centres instead, "
+            f"  If you intended to use SMARTS-based centers instead, "
             f"set center_atoms=None.",
             stacklevel=2,
         )
@@ -118,26 +118,26 @@ def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
 
     # ── Only center_atoms ─────────────────────────────────────────────
     if has_center_atoms:
-        print(f"SOAP centres: species {center_atoms} (from center_atoms)")
+        print(f"SOAP centers: species {center_atoms} (from center_atoms)")
         return None
 
     # ── Only FLEXIBLE_SMARTS ──────────────────────────────────────────
     if has_flex_smarts:
         flex_idx = get_flexible_indices()
-        print(f"SOAP centres: {len(flex_idx)} flexible-atom indices (from FLEXIBLE_SMARTS)")
+        print(f"SOAP centers: {len(flex_idx)} flexible-atom indices (from FLEXIBLE_SMARTS)")
         return flex_idx
 
     # ── Neither → all atoms ───────────────────────────────────────────
-    print("SOAP centres: all atoms (no center_atoms or FLEXIBLE_SMARTS set)")
+    print("SOAP centers: all atoms (no center_atoms or FLEXIBLE_SMARTS set)")
     return None
 
 
 def resolve_channel_soap(channel: dict) -> dict:
     """Build SOAP keyword arguments for one kernel channel.
 
-    Returns a copy of ``channel["soap"]`` with SMARTS-based centre
+    Returns a copy of ``channel["soap"]`` with SMARTS-based center
     indices resolved when ``channel["centers_from_smarts"]`` is *True*.
-    Otherwise the SOAP dict is returned unchanged (centres are either
+    Otherwise the SOAP dict is returned unchanged (centers are either
     specified via ``center_atoms`` or default to all atoms).
 
     :param channel: A single entry from ``KERNEL_CHANNELS``.
@@ -190,14 +190,14 @@ def get_flexible_indices(
         for idx in range(mol.GetNumAtoms()):
             atom = mol.GetAtomWithIdx(idx)
             if atom.GetAtomicNum() == 1:
-                neighbours = [n.GetIdx() for n in atom.GetNeighbors()]
-                if neighbours and all(n in flex_heavy for n in neighbours):
+                neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
+                if neighbors and all(n in flex_heavy for n in neighbors):
                     flex_all.add(idx)
 
     flex_idx = sorted(flex_all)
     n_total = mol.GetNumAtoms()
     h_note = " (incl. H)" if include_h else " (no H)"
-    print(f"Flexible centres: {len(flex_idx)}/{n_total} atoms{h_note} "
+    print(f"Flexible centers: {len(flex_idx)}/{n_total} atoms{h_note} "
           f"({n_total - len(flex_idx)} rigid)")
     return flex_idx
 

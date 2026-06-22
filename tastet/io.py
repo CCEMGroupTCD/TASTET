@@ -110,7 +110,7 @@ def save_soap(soap_list: list[np.ndarray], path: Path | str) -> None:
     """Save a list of SOAP feature matrices as a compressed ``.npz``.
 
     Each structure is stored under a key ``"0"``, ``"1"``, … so that
-    variable-length arrays (different numbers of centres) are handled
+    variable-length arrays (different numbers of centers) are handled
     naturally.
     """
     arrays = {str(i): feat for i, feat in enumerate(soap_list)}

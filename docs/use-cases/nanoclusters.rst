@@ -1,18 +1,20 @@
-Cu Nanoclusters on a Surface
-============================
+Cu Nanoclusters on a ZnO Surface
+================================
 
-This use case analyses copper nanoclusters adsorbed on a metal surface,
-selecting a structurally diverse, energy-aware subset for DFT relaxation.
-It runs in **single-kernel mode** (``USE_TENSOR_PRODUCT = False``).
+This use case analyzes :math:`\mathrm{Cu}_{12}` nanoclusters adsorbed on a
+:math:`\mathrm{ZnO}(10\bar{1}0)` surface, selecting a structurally diverse
+subset for DFT relaxation.  It corresponds to the second case study explained
+in the accompanying research article (DOI: ...).
 
 The example lives in ``examples/nanoclusters/``.
 
 Data Ingestion
 --------------
 
-The committed source of truth is ``input/all_runs.traj`` — the raw
-concatenated GOFFE trajectory.  Before running the pipeline, split it into
-flat per-run trajectories with the one-time ingestion script::
+The committed source of truth is ``input/all_runs.traj`` — a dataset of
+configurations produced by multiple independent runs of a machine-learning
+surrogate-driven global optimization algorithm.  Before running the pipeline,
+split it into flat per-run trajectories with the one-time ingestion script::
 
    python input/split_trajectory.py
 
@@ -68,12 +70,3 @@ Single-kernel mode places the production kernel under
                ├── selected_structures.csv
                ├── selection.png
                └── xyz/
-
-Post-hoc Analysis
------------------
-
-Scripts under ``analysis/`` (not part of the core pipeline):
-
-- ``energy_profile.py`` — surrogate-vs-DFT validation of the selected picks.
-- ``plot_subsample_distribution.py`` — full-vs-subsampled energy histograms.
-- ``plot_cka_heatmaps.py`` — CKA heatmaps across the grid-search channels.

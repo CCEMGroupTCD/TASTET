@@ -43,11 +43,11 @@ def plot_distance_histogram(
     r"""Histogram of pairwise kernel distances ``d(i,j) = √(2(1−K))``.
 
     The x-range is fixed to ``[0, √2]`` — the theoretical bound for a
-    normalised kernel — so that the position of the mass immediately
+    normalized kernel — so that the position of the mass immediately
     conveys whether the representation is too coarse (near 0), too
     sharp (near √2), or well-tuned (spread / multimodal).
 
-    :param K: Normalised kernel matrix, shape *(N, N)*.
+    :param K: Normalized kernel matrix, shape *(N, N)*.
     :param bins: Number of histogram bins.
     :param title: Figure title.
     :param out_path: Save path.
@@ -109,7 +109,7 @@ def plot_distance_histogram_kde(
     dpi: int = 200,
     n_grid: int = 500,
 ) -> plt.Figure:
-    r"""Density-normalised histogram with a Gaussian-KDE overlay.
+    r"""Density-normalized histogram with a Gaussian-KDE overlay.
 
     Companion to :func:`plot_distance_histogram`. The histogram is
     rendered ``density=True`` so the KDE curve and the bars share a
@@ -120,10 +120,10 @@ def plot_distance_histogram_kde(
     The annotation box shows the same diagnostic stats produced by
     ``analyze_distances.py``: ``n_peaks`` (KDE peaks above 10 % of the
     maximum density, via :func:`scipy.signal.find_peaks`) and
-    ``IQR/√2`` (inter-quartile range normalised by the theoretical
+    ``IQR/√2`` (inter-quartile range normalized by the theoretical
     maximum distance).
 
-    :param K: Normalised kernel matrix, shape *(N, N)*.
+    :param K: Normalized kernel matrix, shape *(N, N)*.
     :param bins: Number of histogram bins.
     :param bandwidth: Gaussian-KDE bandwidth in distance units.
     :param title: Figure title.
@@ -224,7 +224,7 @@ def plot_grid_histograms(
 
     :param kernels: List of dicts, each containing:
 
-        * ``"K"``      — normalised kernel matrix,
+        * ``"K"``      — normalized kernel matrix,
         * ``"params"`` — dict of parameter-name → value for the title.
 
     :param bins: Bins per histogram.

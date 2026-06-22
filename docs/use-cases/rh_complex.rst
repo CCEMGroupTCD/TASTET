@@ -1,10 +1,17 @@
-Rh Complex Conformers
-=====================
+Rh Catalyst Conformers
+======================
 
-This use case analyses a library of conformers of a rhodium complex,
-selecting representatives for DFT across two rounds.  It runs in
-**tensor-product (multi-channel) mode**, combining several SOAP/kernel
-channels into one product kernel.
+This use case analyzes a library of conformers of a rhodium catalyst,
+selecting representatives for DFT.  It runs in **tensor-product
+(multi-channel) mode**, combining several SOAP/kernel channels into one
+product kernel.  It corresponds to the first case study explained in the
+accompanying research article (DOI: ...).
+
+Selection proceeds in **two rounds** so that energy information can supervise
+the kernel optimization.  Round 1 selects a diverse set blindly (no energies
+yet) and sends it for DFT.  Round 2 then feeds those round-1 energies back in
+to re-optimize the kernel channels — rewarding the representation that best
+separates structures by energy — before selecting a second batch.
 
 The example lives in ``examples/rh_complex/``.
 
@@ -40,7 +47,7 @@ Round 2 (supervised)
 
 The round-2 workflow lives under ``round2/`` and is activated at runtime by
 ``activate_round2()`` so ``config.py`` stays reproducible for round 1.  It
-re-optimises the kernel channels under supervision of the round-1 energies,
+re-optimizes the kernel channels under supervision of the round-1 energies,
 then re-selects with three strategies:
 
 .. code-block:: bash
@@ -48,11 +55,11 @@ then re-selects with three strategies:
    python round2/reoptimise.py       # CKA-scored grid search supervised by round-1 energies
    python round2/reselect.py select          # FPS, truncated from TOTAL_BUDGET
    python round2/reselect.py zoom_select      # focus a kPCA region (ZOOM_BOX)
-   python round2/reselect.py nearest_select   # centre on the lowest-energy round-1 conformer
+   python round2/reselect.py nearest_select   # center on the lowest-energy round-1 conformer
 
 All three strategies yield the same number of round-2 picks (``ZOOM_K``)
 for paper consistency.  Round 2 uses its own output namespace
-(``ROUND2_ANALYSIS_NAME``) and re-optimised channels via the ``ROUND2_*``
+(``ROUND2_ANALYSIS_NAME``) and re-optimized channels via the ``ROUND2_*``
 config section.
 
 Configuration
@@ -89,15 +96,3 @@ Tensor-product mode places the production kernel under a hash-keyed
            ├── selected_structures.csv
            ├── selection.png
            └── xyz/
-
-Post-hoc Analysis
------------------
-
-Scripts under ``analysis/`` (not part of the core pipeline):
-
-- ``analyze_gridsearch.py`` — ranks grid-search distance distributions.
-- ``plot_energy_kpca.py`` — round-1.5 production kPCA coloured by round-1 energies.
-- ``plot_round2_energy_kpca.py`` — round-2 companion: each strategy's picks on the
-  round-2 kPCA, coloured by their round-2 energies.
-- ``plot_rmsd_histogram.py`` — RMSD distribution of the conformer library.
-- ``plot_cka_heatmaps.py`` — CKA heatmaps across the grid-search channels.

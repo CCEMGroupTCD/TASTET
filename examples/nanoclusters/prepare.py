@@ -100,7 +100,7 @@ def resolve_channel_soap(channel: dict) -> dict:
     """Build SOAP keyword arguments for one kernel channel.
 
     Returns a copy of ``channel["soap"]``.  For this use case there is
-    no SMARTS-based centre resolution — centres are always determined by
+    no SMARTS-based center resolution — centers are always determined by
     ``center_atoms`` in the channel's SOAP dict (or default to all atoms).
 
     :param channel: A single entry from ``KERNEL_CHANNELS``.

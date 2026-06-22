@@ -44,7 +44,7 @@ def _plot_histogram(
     :param bin_edges: Fixed-width bin edges (``BIN_WIDTH`` angstrom apart).
     :param out_path: Save path for the ``.png`` (a ``.pdf`` sibling is also
         written).
-    :param color: Bar fill colour.
+    :param color: Bar fill color.
     """
     fig, ax = plt.subplots(figsize=(6.0, 4.0))
 

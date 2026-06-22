@@ -1,10 +1,10 @@
-"""Round-2 selections coloured by their DFT energies on the round-2 kPCA.
+"""Round-2 selections colored by their DFT energies on the round-2 kPCA.
 
 Round-2 companion to :mod:`plot_energy_kpca`. After the energy-supervised
-CKA re-optimisation, the three selection strategies (``select`` /
+CKA re-optimization, the three selection strategies (``select`` /
 ``zoom_select`` / ``nearest_select``) each pick 19 conformers; those were
 DFT-relaxed and their energies recorded in ``config.ROUND2_ENERGIES_CSV``.
-This overlays each strategy's picks on the round-2 kPCA, coloured by ΔE
+This overlays each strategy's picks on the round-2 kPCA, colored by ΔE
 referenced to the *study-wide* found minimum (round 1 ∪ round 2), so the
 round-1 and round-2 energy plots share a single zero.
 
@@ -101,13 +101,13 @@ def _picks_dE(proj, dE_map, sel_ids) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _plot_2d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
-    """All conformers grey; the strategy's picks coloured by ΔE (2-D)."""
+    """All conformers gray; the strategy's picks colored by ΔE (2-D)."""
     set_mpl_style()
     fig, ax = plt.subplots(figsize=(6, 4), constrained_layout=True)
     ax.scatter(
         proj["kpc1"],
         proj["kpc2"],
-        c="lightgrey",
+        c="lightgray",
         s=60,
         alpha=0.5,
         edgecolors="none",
@@ -135,7 +135,7 @@ def _plot_2d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
 
 
 def _plot_3d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
-    """All conformers grey; the strategy's picks coloured by ΔE (3-D)."""
+    """All conformers gray; the strategy's picks colored by ΔE (3-D)."""
     set_mpl_style()
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111, projection="3d")
@@ -143,7 +143,7 @@ def _plot_3d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
         proj["kpc1"],
         proj["kpc2"],
         proj["kpc3"],
-        c="lightgrey",
+        c="lightgray",
         s=15,
         alpha=0.15,
         edgecolors="none",
@@ -173,7 +173,7 @@ def _plot_3d(proj, ev, dE, mask, label: str, out_path: Path) -> None:
 
 
 def main() -> None:
-    """Render energy-coloured round-2 kPCA plots for each strategy."""
+    """Render energy-colored round-2 kPCA plots for each strategy."""
     proj, ev = _round2_projections()
     dE_map = study_wide_dE_by_cid()
     out_dir = cfg.kernel_dir() / "analysis"

@@ -1,4 +1,4 @@
-"""Centred Kernel Alignment (CKA) between a kernel and a target.
+"""Centered Kernel Alignment (CKA) between a kernel and a target.
 
 CKA measures the similarity between two kernels after centring, here
 between a structure-space kernel ``K`` and a kernel built from a target
@@ -13,10 +13,10 @@ import numpy as np
 
 
 def _center_kernel(K: np.ndarray) -> np.ndarray:
-    """Double-centre a kernel matrix: ``H K H`` with ``H = I − 11ᵀ/n``.
+    """Double-center a kernel matrix: ``H K H`` with ``H = I − 11ᵀ/n``.
 
     :param K: Square kernel matrix.
-    :returns: The centred kernel ``H @ K @ H``.
+    :returns: The centered kernel ``H @ K @ H``.
     """
     n = K.shape[0]
     H = np.eye(n) - np.ones((n, n)) / n
@@ -24,10 +24,10 @@ def _center_kernel(K: np.ndarray) -> np.ndarray:
 
 
 def cka_score(K: np.ndarray, y: np.ndarray, target_kernel: str = "rbf") -> float:
-    """Centred Kernel Alignment between kernel *K* and target vector *y*.
+    """Centered Kernel Alignment between kernel *K* and target vector *y*.
 
     Builds a target kernel ``T`` from *y* (Gaussian/``"rbf"`` or
-    linear), centres both kernels, and returns the normalised
+    linear), centers both kernels, and returns the normalized
     Frobenius inner product
 
     .. math::

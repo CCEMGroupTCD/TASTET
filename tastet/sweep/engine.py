@@ -48,7 +48,7 @@ def run_sweep(
 ) -> pd.DataFrame:
     """Sweep all SOAP × kernel combinations and score each one with ``scorer``.
 
-    :param atoms_list: Structures to featurise.
+    :param atoms_list: Structures to featurize.
     :param target: Reference values passed through to the scorer, such as energies.
         Ignored by scorers that do not need it.
     :param soap_grid: Mapping of SOAP keyword argument names to lists of values to
@@ -61,7 +61,7 @@ def run_sweep(
         such as ``species`` or ``center_atoms``.
     :param soap_fn: Drop-in replacement for :func:`~tastet.soap_utils.compute_soap`.
         It must accept ``(atoms_list, **kwargs)`` and return a list of ndarrays.
-    :param normalize_kernel: Whether to normalise the kernel before scoring. Passed
+    :param normalize_kernel: Whether to normalize the kernel before scoring. Passed
         to :func:`~tastet.kernel.compute_kernel`.
     :returns: DataFrame with one row per parameter combination. Columns include
         every swept parameter, ``scorer.name`` for the score, and ``"status"`` with

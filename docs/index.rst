@@ -7,7 +7,7 @@ in molecular and materials datasets.  It provides a modular pipeline:
 1. Compute SOAP descriptors for a set of structures.
 2. Build global similarity kernels.
 3. Optimize kernel representation via grid search.
-4. Visualise kernel space with kernel PCA.
+4. Visualize kernel space with kernel PCA.
 5. Select representative structures for high-fidelity calculations.
 
 .. toctree::

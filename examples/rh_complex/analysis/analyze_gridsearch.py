@@ -12,7 +12,7 @@ n_peaks  (primary)
 
 iqr      (secondary, used to break ties on ``n_peaks``)
     Inter-quartile range divided by ``√2`` (the theoretical maximum
-    distance for a normalised kernel). A combination that achieves
+    distance for a normalized kernel). A combination that achieves
     high ``n_peaks`` only by zooming into a narrow region of feature
     space will have small ``iqr`` and lose the tiebreak to a
     combination that spreads conformers across the available range.
@@ -365,7 +365,7 @@ def _plot_top(
 
 
 def main() -> None:
-    """Analyse every discovered grid-search directory.
+    """Analyze every discovered grid-search directory.
 
     Discovers all ``grid_search/<hash>/`` directories holding a
     ``pairwise_distances.csv`` and ranks each one using the
@@ -383,7 +383,7 @@ def main() -> None:
     if not grid_dirs:
         sys.exit(f"No grid-search directories with pairwise_distances.csv under {base}")
 
-    print(f"Found {len(grid_dirs)} grid-search directories to analyse.")
+    print(f"Found {len(grid_dirs)} grid-search directories to analyze.")
     for grid_dir in grid_dirs:
         _process_directory(
             grid_dir,

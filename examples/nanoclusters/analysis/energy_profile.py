@@ -104,7 +104,7 @@ def plot_energy_profile(
     """Energy profile scatter plot, shifted to its own global minimum.
 
     :param energies: Raw energy array.
-    :param color: Marker colour.
+    :param color: Marker color.
     :param ylabel: Y-axis label.
     :param out_path: Save path. *None* = don't save.
     :param show: Call ``plt.show()``.

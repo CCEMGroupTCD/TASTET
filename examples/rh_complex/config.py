@@ -167,7 +167,7 @@ KERNEL_KDE_BANDWIDTH: float = 0.01
 
 
 # =====================================================================
-#  ROUND 2 — supervised CKA re-optimisation + incremental selection
+#  ROUND 2 — supervised CKA re-optimization + incremental selection
 # =====================================================================
 # Round 1 (run.py) selects SELECTION_K conformers with the unsupervised
 # KERNEL_CHANNELS above; their DFT energies (ENERGIES_CSV) then supervise
@@ -196,7 +196,7 @@ ZOOM_METHOD: str = "fps"  # "fps" (seeded by round-1 in-box) or "kmedoids"
 # Point of interest for nearest_select. None → lowest-energy round-1 conformer.
 ZOOM_CENTER: int | None = None
 
-# Re-optimised channels chosen from the CKA grid search (linear kernels).
+# Re-optimized channels chosen from the CKA grid search (linear kernels).
 # Same structure as KERNEL_CHANNELS: the chosen soap/kernel are what the
 # selection uses; soap_grid/kernel_grid define the space reoptimise sweeps.
 ROUND2_KERNEL_CHANNELS: list[dict] = [
@@ -253,7 +253,7 @@ ROUND2_KERNEL_COMBINE: str = "product"
 
 SDF_FILE: Path = USE_CASE_DIR / "input" / "open_babel_Rh_conformers.sdf"
 
-# FLEXIBLE_SMARTS: list[str] = ["..."]  # uncomment to use SMARTS-derived centres
+# FLEXIBLE_SMARTS: list[str] = ["..."]  # uncomment to use SMARTS-derived centers
 FLEXIBLE_INCLUDE_H: bool = False
 
 
@@ -272,7 +272,7 @@ def _use_channels() -> bool:
 
 
 def _centers_tag() -> str:
-    """Short identifier for the active SOAP centre selection.
+    """Short identifier for the active SOAP center selection.
 
     :returns: Tag like ``"c-Rh"``, ``"c-Cu-Zn"``, ``"flex-<hash>"``,
         or ``"c-all"``.
@@ -566,7 +566,7 @@ def selection_dir() -> Path:
 def kpca_analysis_dir() -> Path:
     """Analysis output subdirectory next to the active kPCA outputs.
 
-    Holds script-generated kPCA diagnostics (e.g. the energy-coloured
+    Holds script-generated kPCA diagnostics (e.g. the energy-colored
     plots from ``analysis/plot_energy_kpca.py``), kept out of the
     pipeline-generated files.
 
