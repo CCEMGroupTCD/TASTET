@@ -56,8 +56,11 @@ KERNEL_PARAMS: dict = dict(
 # ─────────────────────────────────────────────────────────────────────
 #  GRID SEARCH
 # ─────────────────────────────────────────────────────────────────────
-MAX_GRID_COMBINATIONS: int = 500
-GRID_SEARCH_N_SAMPLES: int | None = None
+MAX_GRID_COMBINATIONS: int = 600
+# Number of conformers the grid search runs on. This single knob is toggled
+# per mode: None (full dataset) for the single-kernel sweep, 100 (seeded
+# subsample) for the multi-channel product sweep, which is far more expensive.
+GRID_SEARCH_N_SAMPLES: int | None = 100
 
 FIXED_SOAP_KW: dict = dict(
     n_max=8,
@@ -77,7 +80,6 @@ SOAP_GRID: dict = dict(
 KERNEL_GRID = [
     dict(method="average", metric="linear"),
     dict(method="average", metric="rbf", gamma="median"),
-    dict(method="rematch", metric="rbf", gamma="median", alpha=0.1),
 ]
 
 # CKA target-kernel type for round2.py's supervised grid search.
@@ -144,8 +146,10 @@ KERNEL_CHANNELS: list[dict] = [
         ),
         "soap_grid": _SOAP_GRID_SHARED,
         "kernel_grid": [
+            dict(method="average", metric="linear"),
+            dict(method="average", metric="rbf", gamma="median"),
             dict(method="rematch", metric="linear", alpha=0.5),
-            dict(method="rematch", metric="rbf", gamma="median", alpha=0.1),
+            dict(method="rematch", metric="rbf", gamma="median", alpha=0.5),
         ],
     },
 ]
