@@ -14,10 +14,3 @@ CKA
 .. automodule:: tastet.metrics.cka
    :members:
    :show-inheritance:
-
-Dissimilarity
--------------
-
-.. automodule:: tastet.metrics.dissimilarity
-   :members:
-   :show-inheritance:

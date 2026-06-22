@@ -13,7 +13,9 @@ Clone the repository and install in editable mode:
    pip install -e ".[docs]"
 
 The ``[docs]`` extra installs Sphinx and the ReadTheDocs theme so you
-can build documentation locally.
+can build documentation locally.  To run the bundled examples, install
+the ``[examples]`` extra instead (it adds RDKit); each example is then
+driven by ``python run.py <step>``.
 
 Quick Example
 -------------
@@ -30,7 +32,7 @@ Quick Example
                             n_max=8, l_max=4, center_atoms=["Cu"])
 
    # 2. Build kernel matrix
-   K = compute_kernel(soap_list, method="average", metric="linear")
+   K = compute_kernel(soap_list, method="rematch", metric="linear", alpha=0.5)
 
    # 3. Run kPCA
    result = fit_kpca(K, n_components=2)

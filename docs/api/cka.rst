@@ -1,6 +1,6 @@
-I/O
+CKA
 ===
 
-.. automodule:: tastet.io
+.. automodule:: tastet.cka
    :members:
    :show-inheritance:

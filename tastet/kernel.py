@@ -88,7 +88,7 @@ def compute_kernel(
     Build a global similarity kernel from per-structure SOAP features.
 
     :param soap_list: One feature matrix per structure, typically produced by
-        :func:`tastet.soap.compute_soap`.
+        :func:`tastet.soap_utils.compute_soap`.
     :param method: Global kernel type. Must be ``"average"`` or ``"rematch"``.
     :param metric: Pairwise local-environment metric understood by DScribe /
         scikit-learn, for example ``"linear"``, ``"rbf"``, or ``"polynomial"``.

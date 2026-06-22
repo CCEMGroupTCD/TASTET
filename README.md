@@ -5,14 +5,18 @@ Explore atomic structures via SOAP descriptors, global similarity kernels, and k
 ## Installation
 
 ```bash
-pip install -e .
+pip install -e .                # library only
+pip install -e ".[examples]"    # also run the bundled examples (RDKit)
+pip install -e ".[docs]"        # also build the Sphinx docs
 ```
 
 ## Quickstart
 
 ```python
 from ase.io import read
-from tastet import compute_soap, compute_kernel, fit_kpca
+from tastet.soap_utils import compute_soap
+from tastet.kernel import compute_kernel
+from tastet.kpca import fit_kpca
 from tastet.plotting import plot_kpca
 
 structures = read("structures.traj", index=":")
@@ -26,17 +30,29 @@ plot_kpca(result, color_values=energies, color_label="Energy (eV)", show=True)
 
 ## Use cases
 
-Each subdirectory under `use_cases/` is a self-contained analysis with its own `config.py` and `run.py`. See `use_cases/pablo_clusters/` for a worked example.
+Two complete, self-contained example pipelines live under `examples/`:
+
+- `examples/nanoclusters/` — Cu nanoclusters on a surface (single-kernel mode).
+- `examples/rh_complex/` — Rh complex conformers (tensor-product mode, with a
+  supervised round-2 workflow).
+
+Each is driven by three scripts — `config.py`, `prepare.py`, and `run.py` — sharing
+the same CLI steps (`db`, `grid_search`, `soap`, `kernel`, `kpca`, `select`). See the
+[Use Cases](docs/use-cases/index.rst) docs for worked walkthroughs.
 
 ## Package structure
 
 ```
 tastet/
-├── soap.py          # compute_soap — public API
-├── soap_utils.py    # generate_environment_soap internals
+├── soap_utils.py    # compute_soap — SOAP descriptors
 ├── kernel.py        # compute_kernel — average / REMatch kernels
 ├── kpca.py          # fit_kpca — KernelPCA wrapper + KPCAResult dataclass
-├── io.py            # save/load SOAP and kernel arrays
-├── plotting.py      # plot_kpca scatter helper
-└── plot_style.py    # matplotlib style config (set_mpl_style, etc.)
+├── io.py            # database, SOAP, and kernel save/load helpers
+├── distance.py      # kernel-induced distance distributions
+├── selection.py     # diverse structure selection (FPS / k-medoids)
+├── pipeline.py      # shared db/soap/kernel/kpca/grid_search/select steps
+├── cka.py           # centred kernel alignment scoring
+├── metrics/         # scorer protocol + CKA scorer
+├── sweep/           # SOAP × kernel grid search (single- and multi-channel)
+└── plotting/        # kPCA scatter, heatmaps, distance plots, styling
 ```

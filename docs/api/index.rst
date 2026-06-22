@@ -12,6 +12,17 @@ Core Modules
    kpca
    io
 
+Analysis & Pipeline
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   distance
+   selection
+   cka
+   pipeline
+
 Sweep & Metrics
 ---------------
 
