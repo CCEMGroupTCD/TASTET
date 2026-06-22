@@ -192,16 +192,9 @@ def grid_search_multichannel_step(
         )
         print(f"  Heatmaps     -> {cfg.grid_search_heatmap_path()}")
 
-    # ── Distance distributions (always) ─────────────────────────────
-    hist_path = out_dir / "distance_distributions.png"
-    plot_grid_histograms(
-        kernel_entries,
-        out_path=hist_path,
-        suptitle="Distance distributions — multi-channel grid search",
-        show=getattr(cfg, "SHOW", False),
-    )
-    print(f"  Dist plots   -> {hist_path}")
-
+    # ── Distance CSVs (persisted before plotting) ───────────────────
+    # Write the expensive sweep results to disk first so a failure in the
+    # (cosmetic) histogram plot can never discard a completed sweep.
     combined = pd.concat(pair_frames, ignore_index=True)
     pair_csv = out_dir / "pairwise_distances.csv"
     combined.to_csv(pair_csv, index=False)
@@ -223,6 +216,16 @@ def grid_search_multichannel_step(
     summary_path = out_dir / "distance_summary.csv"
     pd.DataFrame(summary_rows).to_csv(summary_path, index=False)
     print(f"  Dist summary -> {summary_path}  ({len(summary_rows)} combinations)")
+
+    # ── Distance distributions (always) ─────────────────────────────
+    hist_path = out_dir / "distance_distributions.png"
+    plot_grid_histograms(
+        kernel_entries,
+        out_path=hist_path,
+        suptitle="Distance distributions — multi-channel grid search",
+        show=getattr(cfg, "SHOW", False),
+    )
+    print(f"  Dist plots   -> {hist_path}")
 
     # ── Config snapshot ──────────────────────────────────────────────
     all_species = sorted({s for a in atoms_list for s in a.get_chemical_symbols()})
