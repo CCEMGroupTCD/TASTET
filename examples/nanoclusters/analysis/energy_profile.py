@@ -35,8 +35,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
-from tastet.plotting.style import set_mpl_style, apply_axis_style, savefig, palette
+from tastet.plotting.style import (
+    set_mpl_style,
+    apply_axis_style,
+    savefig,
+    styled_legend,
+    palette,
+)
 
 # config.py lives in the example root, one level up from analysis/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -44,6 +51,11 @@ import config as cfg  # noqa: E402
 
 DFT_ENERGY_LABEL: str = r"$E - E_{\mathrm{gm}}^{\mathrm{DFT}}$ (eV)"
 SURROGATE_ENERGY_LABEL: str = r"$E - E_{\mathrm{gm}}$ (eV)"
+
+# Parity-plot axes: both methods share the DFT global-minimum reference
+# ($E_{gm}^{DFT}$); only the numerator energy differs by method.
+SURROGATE_PARITY_LABEL: str = r"Surrogate, $E - E_{\mathrm{gm}}^{\mathrm{DFT}}$ (eV)"
+DFT_PARITY_LABEL: str = r"DFT, $E^{\mathrm{DFT}} - E_{\mathrm{gm}}^{\mathrm{DFT}}$ (eV)"
 
 
 # ── Energy loading ────────────────────────────────────────────────────
@@ -216,13 +228,12 @@ def plot_parity(
 
     Surrogate and DFT live on different absolute scales, so the two are
     comparable only up to one additive constant. Both are therefore
-    referenced to a single common structure — the DFT global minimum —
-    so each axis is ``E - E_gm^DFT`` (energy relative to the DFT ground
-    state): the x-axis from the surrogate, the y-axis from DFT. Points on
-    the ``y = x`` diagonal mean the surrogate reproduces the DFT relative
-    energetics exactly, and the annotated MAE/RMSE (deviation from the
-    diagonal) are the surrogate error relative to DFT — the same values
-    reported by :func:`plot_comparison`.
+    referenced to a single common structure — the DFT global minimum
+    (``E_gm^DFT``) — so the x-axis is the surrogate energy and the y-axis
+    the DFT energy, each relative to that shared reference. Points on the
+    ``y = x`` diagonal mean the surrogate reproduces the DFT relative
+    energetics exactly; the MAE/RMSE of the deviation from the diagonal
+    are reported in the legend.
 
     :param dft_energies: Raw DFT energies (not pre-shifted).
     :param surrogate_energies: Raw surrogate energies (not pre-shifted).
@@ -249,7 +260,7 @@ def plot_parity(
     rmse = float(np.sqrt(np.mean(residuals**2)))
 
     set_mpl_style()
-    fig, ax = plt.subplots(figsize=(5, 5), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(max(6, n * 0.15), 4), constrained_layout=True)
 
     lo = float(min(x.min(), y.min()))
     hi = float(max(x.max(), y.max()))
@@ -261,7 +272,7 @@ def plot_parity(
     ax.scatter(
         x,
         y,
-        color=palette["blue"],
+        color=palette["green"],
         s=80,
         zorder=3,
         edgecolors="white",
@@ -271,22 +282,20 @@ def plot_parity(
     ax.set_xlim(*lims)
     ax.set_ylim(*lims)
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel(r"Surrogate $E - E_{\mathrm{gm}}^{\mathrm{DFT}}$ (eV)")
-    ax.set_ylabel(r"DFT $E - E_{\mathrm{gm}}^{\mathrm{DFT}}$ (eV)")
-    ax.text(
-        0.04,
-        0.96,
-        f"MAE = {mae:.2f} eV\nRMSE = {rmse:.2f} eV",
-        transform=ax.transAxes,
-        va="top",
-        ha="left",
-        fontsize=10,
-    )
+    ax.set_xlabel(SURROGATE_PARITY_LABEL)
+    ax.set_ylabel(DFT_PARITY_LABEL)
+
+    # Text-only legend reporting the surrogate error (handles hidden).
+    stats = [
+        Line2D([], [], linestyle="none", marker="", label=f"MAE = {mae:.2f} eV"),
+        Line2D([], [], linestyle="none", marker="", label=f"RMSE = {rmse:.2f} eV"),
+    ]
+    styled_legend(ax, handles=stats, loc="lower right", handlelength=0, handletextpad=0)
 
     apply_axis_style(ax, xfmt=".1f", yfmt=".1f")
 
     if out_path is not None:
-        savefig(fig, out_path, dpi=dpi)
+        savefig(fig, out_path, dpi=dpi, also_pdf=True)
         print(f"Saved -> {out_path}")
     if show:
         plt.show()
