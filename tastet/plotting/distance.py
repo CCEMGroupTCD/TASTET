@@ -29,6 +29,7 @@ from tastet.plotting.style import set_mpl_style, apply_axis_style, savefig, pale
 # Single histogram (kernel step)
 # ------------------------------------------------------------------
 
+
 def plot_distance_histogram(
     K: np.ndarray,
     *,
@@ -60,17 +61,24 @@ def plot_distance_histogram(
 
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
     ax.hist(
-        d, bins=bins, range=(0, D_MAX),
-        color=palette["dark blue"], alpha=0.85,
-        edgecolor="white", linewidth=0.4,
+        d,
+        bins=bins,
+        range=(0, D_MAX),
+        color=palette["dark blue"],
+        alpha=0.85,
+        edgecolor="white",
+        linewidth=0.4,
     )
 
     n_pairs = len(d)
     ax.text(
-        0.97, 0.95,
+        0.97,
+        0.95,
         f"$N_{{\\mathrm{{pairs}}}}$ = {n_pairs}",
         transform=ax.transAxes,
-        ha="right", va="top", fontsize=9,
+        ha="right",
+        va="top",
+        fontsize=9,
         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.7", alpha=0.85),
     )
 
@@ -134,9 +142,14 @@ def plot_distance_histogram_kde(
 
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
     ax.hist(
-        d, bins=bins, range=(0, D_MAX), density=True,
-        color=palette["dark blue"], alpha=0.40,
-        edgecolor="white", linewidth=0.4,
+        d,
+        bins=bins,
+        range=(0, D_MAX),
+        density=True,
+        color=palette["dark blue"],
+        alpha=0.40,
+        edgecolor="white",
+        linewidth=0.4,
     )
 
     # KDE overlay (constant bandwidth, evaluated on a shared grid).
@@ -161,9 +174,13 @@ def plot_distance_histogram_kde(
         f"$\\mathrm{{IQR}}/\\sqrt{{2}}$ = {iqr_norm:.3g}"
     )
     ax.text(
-        0.97, 0.95, annotation,
+        0.97,
+        0.95,
+        annotation,
         transform=ax.transAxes,
-        ha="right", va="top", fontsize=9,
+        ha="right",
+        va="top",
+        fontsize=9,
         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.7", alpha=0.85),
     )
 
@@ -185,6 +202,7 @@ def plot_distance_histogram_kde(
 # ------------------------------------------------------------------
 # Multi-panel grid search
 # ------------------------------------------------------------------
+
 
 def plot_grid_histograms(
     kernels: list[dict],
@@ -239,8 +257,18 @@ def plot_grid_histograms(
 
     fig_w = figsize_per_panel[0] * n_cols
     fig_h = figsize_per_panel[1] * n_rows
+
+    # Agg cannot render a figure larger than 2**16 pixels in either
+    # dimension. For very large grids, scale the panels down uniformly so
+    # the whole figure stays within that hard limit.
+    max_px = 65000
+    scale = min(1.0, max_px / (fig_w * dpi), max_px / (fig_h * dpi))
+    fig_w *= scale
+    fig_h *= scale
+
     fig, axes = plt.subplots(
-        n_rows, n_cols,
+        n_rows,
+        n_cols,
         figsize=(fig_w, fig_h),
         squeeze=False,
         constrained_layout=True,
@@ -252,9 +280,13 @@ def plot_grid_histograms(
 
         d = pairwise_distances(entry["K"])
         ax.hist(
-            d, bins=bins, range=(0, D_MAX),
-            color=palette["dark blue"], alpha=0.85,
-            edgecolor="white", linewidth=0.3,
+            d,
+            bins=bins,
+            range=(0, D_MAX),
+            color=palette["dark blue"],
+            alpha=0.85,
+            edgecolor="white",
+            linewidth=0.3,
         )
 
         title = panel_title(entry["params"])
@@ -265,8 +297,11 @@ def plot_grid_histograms(
         ax.set_xlim(0, D_MAX)
 
         ax.tick_params(
-            axis="both", which="both",
-            direction="out", top=False, right=False,
+            axis="both",
+            which="both",
+            direction="out",
+            top=False,
+            right=False,
             labelsize=7,
         )
 
