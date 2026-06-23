@@ -57,7 +57,7 @@ def pairwise_dataframe(
 
     :param K: Normalized kernel matrix.
     :type K: ndarray, shape (N, N)
-    :param ids: Identifier for each structure, for example ``conformer_id``
+    :param ids: Identifier for each structure, for example ``configuration_id``
         from the database. Row order must match ``K``.
     :type ids: array-like, shape (N,)
     :returns: DataFrame with columns ``id_i``, ``id_j``, and ``d``, sorted by

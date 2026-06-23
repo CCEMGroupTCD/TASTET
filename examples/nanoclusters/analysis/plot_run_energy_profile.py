@@ -1,33 +1,31 @@
-"""Split the raw GOFFE trajectory into per-run trajectories.
+"""Plot the energy-vs-run profile of the raw GOFFE trajectory.
 
 The committed source of truth is ``input/all_runs.traj`` — the
-concatenation of every GOFFE global-optimization run.  This script
-detects run boundaries from energy spikes (each new run restarts from a
-high-energy configuration), then writes one flat trajectory per run,
-``input/<run_name>.traj``, which :mod:`prepare` reads to build the
-database.  It also saves the energy-vs-run profile figure used in the
-publication.
+concatenation of every GOFFE global-optimization run.  This optional,
+publication-only script detects run boundaries from energy spikes (each
+new run restarts from a high-energy configuration) and saves the
+energy-vs-run profile figure used in the article.  It is **not** part of
+the pipeline: the ``db`` step builds the database directly from
+``all_runs.traj`` and does not require this script.
 
-Run this once before the pipeline::
+Run with::
 
-    python input/split_trajectory.py
-    python run.py db subsample grid_search soap kernel kpca select
+    python analysis/plot_run_energy_profile.py
 """
 
 from __future__ import annotations
 
-import csv
 import sys
 from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
 from ase import Atoms
-from ase.io import read, write
+from ase.io import read
 
 from tastet.plotting.style import apply_axis_style, palette, savefig, set_mpl_style
 
-# config.py lives in the example root, one level up from input/.
+# config.py lives in the example root, one level up from analysis/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config as cfg  # noqa: E402
 
@@ -35,8 +33,6 @@ import config as cfg  # noqa: E402
 SPIKE_THRESHOLD: float = 5.0  # eV
 # Minimum number of frames required between two run boundaries.
 MIN_RUN_LENGTH: int = 1000
-# All committed runs are single-layer slabs.
-N_LAYERS: int = 1
 
 
 def load_trajectory() -> list[Atoms]:
@@ -166,69 +162,13 @@ def plot_energy_profile(energies: np.ndarray, boundaries: list[int]) -> None:
     plt.close(fig)
 
 
-def split_and_save(images: list[Atoms], boundaries: list[int]) -> None:
-    """Write one flat trajectory per detected run into ``cfg.RUNS_DIR``.
-
-    Run names follow ``run_<id>_n<frames>_<layers>L`` (the ``<layers>L``
-    suffix is provenance only) and match the entries of
-    ``cfg.TARGET_RUNS``.
-
-    :param images: All structures from the raw trajectory.
-    :param boundaries: Run start indices from :func:`detect_run_boundaries`.
-    """
-    cfg.RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    boundaries_ext: list[int] = boundaries + [len(images)]
-
-    for run_id in range(len(boundaries)):
-        start: int = boundaries_ext[run_id]
-        end: int = boundaries_ext[run_id + 1]
-        run_images: list[Atoms] = images[start:end]
-
-        run_name: str = f"run_{run_id:03d}_n{len(run_images)}_{N_LAYERS}L"
-        out_path: Path = cfg.RUNS_DIR / f"{run_name}.traj"
-        write(str(out_path), run_images)
-        print(
-            f"  run {run_id:3d}: [{start:5d}:{end:5d}] "
-            f"({len(run_images):4d} frames) -> {out_path.name}"
-        )
-
-    print(f"\n  {len(boundaries)} per-run trajectories saved to {cfg.RUNS_DIR}/")
-
-
-def save_summary_csv(
-    images: list[Atoms], energies: np.ndarray, boundaries: list[int]
-) -> None:
-    """Write a provenance CSV of the per-frame run assignment.
-
-    :param images: All structures from the raw trajectory.
-    :param energies: Per-frame potential energies.
-    :param boundaries: Run start indices from :func:`detect_run_boundaries`.
-    """
-    boundaries_ext: list[int] = boundaries + [len(images)]
-    cfg.OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    csv_path: Path = cfg.OUTPUT_ROOT / "run_summary.csv"
-
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["image_index", "run_id", "n_layers", "energy_eV", "n_cu"])
-        for run_id in range(len(boundaries)):
-            start: int = boundaries_ext[run_id]
-            end: int = boundaries_ext[run_id + 1]
-            for i in range(start, end):
-                n_cu: int = images[i].get_chemical_symbols().count("Cu")
-                writer.writerow([i, run_id, N_LAYERS, f"{energies[i]:.6f}", n_cu])
-    print(f"  Run summary written to {csv_path}")
-
-
 def main() -> None:
-    """Split the raw trajectory and produce the energy-vs-run figure."""
+    """Produce the energy-vs-run profile figure from the raw trajectory."""
     images = load_trajectory()
     energies = get_energies(images)
 
     boundaries = detect_run_boundaries(energies, SPIKE_THRESHOLD)
     plot_energy_profile(energies, boundaries)
-    save_summary_csv(images, energies, boundaries)
-    split_and_save(images, boundaries)
 
 
 if __name__ == "__main__":

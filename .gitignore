@@ -48,10 +48,9 @@ examples/**
 !examples/nanoclusters/prepare.py
 
 !examples/nanoclusters/input/
-# Committed source of truth.  The per-run trajectories (input/run_*.traj)
-# are derived from it by split_trajectory.py and stay untracked.
+# Committed source of truth.  The db step builds the database directly
+# from it; no derived per-run trajectories are tracked.
 !examples/nanoclusters/input/all_runs.traj
-!examples/nanoclusters/input/split_trajectory.py
 !examples/nanoclusters/input/energies_selected.csv
 !examples/nanoclusters/analysis/
 !examples/nanoclusters/analysis/*.py

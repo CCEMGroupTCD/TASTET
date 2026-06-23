@@ -6,7 +6,7 @@ Shared interface (imported by run.py):
     resolve_channel_soap()
 
 Use-case-specific internals:
-    _build_database()           — reads the per-run trajectories into the DB
+    _build_database()           — reads ``all_runs.traj`` into the DB
 
 Energy convention
 -----------------
@@ -21,8 +21,7 @@ Database schema convention (shared across all use cases)
 --------------------------------------------------------
 Every row carries a single identifier ``configuration_id`` — sequential,
 1-based, gap-free. The position of a structure in the kernel matrix is
-``configuration_id - 1``; provenance back to the source run is preserved
-via ``run_name``.
+``configuration_id - 1``.
 """
 
 from __future__ import annotations
@@ -47,15 +46,7 @@ import config as cfg
 
 
 def ensure_database() -> None:
-    """Build the database from the per-run trajectories if it is missing."""
-    for name in cfg.TARGET_RUNS:
-        p = cfg.RUNS_DIR / f"{name}.traj"
-        if not p.exists():
-            sys.exit(
-                f"Per-run trajectory not found: {p}.  "
-                f"Run 'python input/split_trajectory.py' first to split "
-                f"input/all_runs.traj into per-run trajectories."
-            )
+    """Build the database from the raw trajectory if it is missing."""
     tastet_ensure_database(cfg.db_path(), build_fn=_build_database)
 
 
@@ -71,8 +62,7 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
 
     :returns: ``(atoms_list, meta)`` for the subset. ``meta`` is re-keyed
         with a fresh 1-based, gap-free ``configuration_id`` (the kernel
-        row position is ``configuration_id - 1``); ``run_name`` keeps the
-        link to the source run.
+        row position is ``configuration_id - 1``).
     :raises SystemExit: If the production database does not exist yet.
     """
     if not cfg.db_path().exists():
@@ -113,42 +103,30 @@ def resolve_channel_soap(channel: dict) -> dict:
 
 
 def _build_database() -> None:
-    """Read the per-run trajectories and write .db + .csv.
+    """Read the raw concatenated trajectory and write .db + .csv.
 
+    Reads every frame of ``cfg.ALL_RUNS_TRAJ`` in file order and assigns
+    each a single identifier ``configuration_id`` — 1-based and gap-free.
     Each structure stores its raw potential energy in the ``energy_eV``
     column (``energy`` is a reserved ASE-db key) straight from the
-    trajectory, plus a single identifier ``configuration_id``, assigned
-    in read order across ``TARGET_RUNS`` — 1-based and gap-free.
-    ``run_name`` is retained for provenance. No reference energy is
-    applied here; ``E - E_gm`` is computed downstream from these raw
-    values.
+    trajectory, plus the Cu count ``n_cu``. No reference energy is applied
+    here; ``E - E_gm`` is computed downstream from these raw values.
     """
-    print(f"Building database from {len(cfg.TARGET_RUNS)} runs ...")
+    print(f"Building database from {cfg.ALL_RUNS_TRAJ.name} ...")
+    images: list[Atoms] = read(str(cfg.ALL_RUNS_TRAJ), index=":")
+    print(f"  {len(images)} images loaded.")
+
     atoms_list: list[Atoms] = []
     records: list[dict] = []
-    cid: int = 0
-
-    for run_name in cfg.TARGET_RUNS:
-        traj = cfg.RUNS_DIR / f"{run_name}.traj"
-        if not traj.exists():
-            print(f"  Skipping {run_name} (no {traj.name})")
-            continue
-
-        images: list[Atoms] = read(str(traj), index=":")
-        print(f"  {run_name}: {len(images)} images")
-
-        for atoms in images:
-            n_cu = atoms.get_chemical_symbols().count("Cu")
-            cid += 1
-            atoms_list.append(atoms)
-            records.append(
-                dict(
-                    configuration_id=cid,
-                    run_name=run_name,
-                    n_cu=n_cu,
-                    energy_eV=atoms.get_potential_energy(),
-                )
+    for cid, atoms in enumerate(images, start=1):
+        atoms_list.append(atoms)
+        records.append(
+            dict(
+                configuration_id=cid,
+                n_cu=atoms.get_chemical_symbols().count("Cu"),
+                energy_eV=atoms.get_potential_energy(),
             )
+        )
 
     build_database(cfg.db_path(), cfg.csv_path(), atoms_list, records)
 

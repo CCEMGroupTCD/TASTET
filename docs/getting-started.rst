@@ -6,7 +6,7 @@ Installation
 
 Clone the repository and install in editable mode:
 
-.. code-block:: bash
+.. code-block:: text
 
    git clone https://github.com/youruser/tastet.git
    cd tastet
@@ -15,7 +15,7 @@ Clone the repository and install in editable mode:
 To run the bundled examples, add the ``examples`` extra — it installs
 RDKit, used by the Rh-complex example to read its SDF conformer library:
 
-.. code-block:: bash
+.. code-block:: text
 
    pip install -e ".[examples]"
 

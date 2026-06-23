@@ -65,7 +65,7 @@ KERNEL_PARAMS: dict = dict(
 # ─────────────────────────────────────────────────────────────────────
 # When USE_TENSOR_PRODUCT = False:
 #   sweeps FIXED_SOAP_KW × SOAP_GRID × KERNEL_GRID (single kernel),
-#   scored with CKA against formation energy.
+#   scored with CKA against energy.
 # When USE_TENSOR_PRODUCT = True:
 #   sweeps per-channel soap_grid × kernel_grid across channels and
 #   combines results with KERNEL_COMBINE.
@@ -101,7 +101,7 @@ KERNEL_GRID = [
 ]
 
 # CKA scorer target kernel for the (supervised) grid search.  The target
-# values are the formation energies, pulled from the DB meta in run.py.
+# values are the energies, pulled from the DB meta in run.py.
 CKA_TARGET_KERNEL: str = "linear"
 
 
@@ -164,9 +164,9 @@ KERNEL_WEIGHTS: list[float] | None = None
 # ── Structure selection ──────────────────────────────────────────────
 # Before FPS, keep only structures within this energy of the global
 # minimum, i.e. E - E_gm ≤ SELECTION_ENERGY_MAX (E_gm = lowest surrogate
-# formation energy over the whole set).  4.51 eV reproduces the same
-# pool the study used (the old 15.0 eV absolute-formation-energy cutoff;
-# E_gm ≈ 10.49 eV, so 15.0 - E_gm ≈ 4.51).
+# energy over the whole set).  4.51 eV reproduces the same pool the study
+# used (the old 15.0 eV absolute-energy cutoff; E_gm ≈ 10.49 eV, so
+# 15.0 - E_gm ≈ 4.51).
 SELECTION_ENERGY_MAX: float = 4.51
 SELECTION_K: int = 30
 SELECTION_METHOD: str = "fps"
@@ -191,29 +191,14 @@ NUM_BINS: int = 5
 
 # ── Input data ───────────────────────────────────────────────────────
 # Raw concatenated trajectory of all GOFFE runs (the committed source of
-# truth).  ``input/split_trajectory.py`` splits it into one flat
-# per-run trajectory ``<run_name>.traj`` inside ``RUNS_DIR``, which is
-# what ``prepare._build_database`` reads.
-RUNS_DIR: Path = INPUT_DIR
+# truth).  The ``db`` step builds the database directly from this file —
+# no pre-splitting is required.
 ALL_RUNS_TRAJ: Path = INPUT_DIR / "all_runs.traj"
 
 # DFT energies of the FPS-selected structures (selection order), used by
 # ``analysis/energy_profile.py`` to validate the surrogate.  Committed
 # input, parallel to rh_complex's ``energies_round1.csv``.
 ENERGIES_SELECTED_CSV: Path = INPUT_DIR / "energies_selected.csv"
-
-TARGET_RUNS: list[str] = [
-    "run_000_n1000_1L",
-    "run_001_n1000_1L",
-    "run_002_n1000_1L",
-    "run_003_n1000_1L",
-    "run_004_n1000_1L",
-    "run_005_n1000_1L",
-    "run_006_n1000_1L",
-    "run_007_n1000_1L",
-    "run_008_n1000_1L",
-    "run_009_n1000_1L",
-]
 
 
 # =====================================================================

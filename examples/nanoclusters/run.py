@@ -2,7 +2,7 @@
 
 Usage::
 
-    python run.py db                       # 1. build database from the runs
+    python run.py db                       # 1. build database from all_runs.traj
     python run.py grid_search              # 2. (optional) sweep on energy-balanced subset
     python run.py soap kernel kpca         # 3. single-config pipeline on all structures
     python run.py select                   # 4. select structures for DFT
@@ -155,18 +155,18 @@ def _save_combined_distance_outputs(
 
 
 def _db() -> None:
-    """Build / update the database from the configured per-run trajectories."""
+    """Build / update the database from the raw concatenated trajectory."""
     ensure_database()
 
 
 def _grid_search() -> None:
-    """Sweep SOAP × kernel parameters, scored by CKA against formation energy.
+    """Sweep SOAP × kernel parameters, scored by CKA against energy.
 
     Dispatches by ``USE_TENSOR_PRODUCT``: multi-channel sweep via
     :func:`tastet.sweep.multichannel.grid_search_multichannel_step` or
     single-kernel sweep via :func:`tastet.pipeline.grid_search_step`,
     both scored by :class:`~tastet.metrics.cka.CKAScorer` against the
-    formation energies.
+    energies.
 
     The grid search runs on the energy-balanced subset returned by
     :func:`prepare.load_grid_search_structures`, not the full database.
@@ -406,7 +406,7 @@ def _kpca() -> None:
 def _select() -> None:
     """Select representatives below the energy threshold, with full-view + POSCARs.
 
-    Applies the formation-energy filter, runs diverse selection
+    Applies the energy filter, runs diverse selection
     (``selection.png`` over the filtered pool, plus 2-D/3-D plots via
     :func:`tastet.pipeline.select_step`), then adds a full-view kPCA plot
     with the selections highlighted and exports VASP POSCARs.
@@ -483,7 +483,7 @@ STEPS: dict[str, callable] = {
 USAGE: str = """\
 Available steps:
 
-  1.  db             Build / update the database from the per-run trajectories.
+  1.  db             Build / update the database from input/all_runs.traj.
   2.  grid_search    Sweep SOAP × kernel parameters on an energy-balanced
                      subset of the database.  When USE_TENSOR_PRODUCT = True,
                      sweeps per-channel grids and combines; otherwise
@@ -494,7 +494,7 @@ Available steps:
   4.  kernel         Build kernel matrix + distance histogram + KDE overlay
                      + pairwise CSV.  When USE_TENSOR_PRODUCT = True,
                      computes per-channel kernels and combines them.
-  5.  kpca           Run kPCA (colored by formation energy), save
+  5.  kpca           Run kPCA (colored by energy), save
                      projections + 2-D and 3-D plots.
   6.  select         Select representative structures for DFT.
                      Produces selection.png (filtered pool),

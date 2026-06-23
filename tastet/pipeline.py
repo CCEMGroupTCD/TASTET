@@ -71,7 +71,7 @@ def kernel_step(cfg, ids: np.ndarray | list) -> None:
     (``distance_distribution.png`` — counts; and
     ``kde_distance_distribution.png`` — density with a Gaussian-KDE
     overlay) and a per-pair distance CSV (sorted most-dissimilar-first)
-    for inspecting specific conformer pairs against the structure
+    for inspecting specific structure pairs against the structure
     database.
 
     :param cfg: Config module (needs ``soap_path``, ``kernel_path``,
@@ -268,12 +268,12 @@ def grid_search_step(
     ``None`` (unsupervised), only distance distributions are produced and
     *scorer* is unused — pass ``None`` in that case.
 
-    A per-pair distance CSV is always saved so that specific conformer
+    A per-pair distance CSV is always saved so that specific structure
     pairs can be cross-referenced with the structure database.
 
     :param cfg: Config module (needs ``grid_search_*`` paths, ``SOAP_GRID``,
         ``KERNEL_GRID``).
-    :param atoms_list: Structures to featurize (e.g. two reference conformers,
+    :param atoms_list: Structures to featurize (e.g. two reference structures,
         or a subsampled dataset).
     :param ids: Structure identifiers, one per element of *atoms_list*.
     :param scorer: A :class:`~tastet.metrics.Scorer` instance, required only
@@ -457,7 +457,7 @@ def select_step(
     redundant ``original_id`` or ``array_index``), and one ``.xyz``
     file per selected structure under ``selection_dir/xyz/``. The
     filename template is ``cfg.SELECTION_XYZ_TEMPLATE`` if defined,
-    otherwise ``"conformer_{id}.xyz"``.
+    otherwise ``"configuration_{id}.xyz"``.
 
     Renders both a 2-D and a 3-D selection plot. The 3-D plot reads
     the ``kpc3`` column from the projections CSV; if that column is
@@ -531,8 +531,8 @@ def select_step(
     cids = [int(c) for c in selected["configuration_id"]]
     print(f"  configuration_ids ({len(cids)}, in selection order): {cids}")
 
-    # ── Write one .xyz per selected conformer ───────────────────────
-    template = getattr(cfg, "SELECTION_XYZ_TEMPLATE", "conformer_{id}.xyz")
+    # ── Write one .xyz per selected structure ───────────────────────
+    template = getattr(cfg, "SELECTION_XYZ_TEMPLATE", "configuration_{id}.xyz")
     atoms_list, _ = load_atoms_and_meta(cfg.db_path())
     xyz_dir = cfg.selection_dir() / "xyz"
     xyz_dir.mkdir(parents=True, exist_ok=True)
