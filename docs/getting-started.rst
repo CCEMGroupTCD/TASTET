@@ -13,7 +13,18 @@ We recommend installing it into a fresh virtual environment (``conda`` or
    conda create -n tastet python=3.11
    conda activate tastet
 
-TASTET is not on PyPI yet, so install it from source in editable mode:
+TASTET is not on PyPI yet, so install it directly from GitHub:
+
+.. code-block:: text
+
+   pip install "git+https://github.com/CCEMGroupTCD/TASTET.git"
+
+This pulls in the core scientific stack automatically (NumPy, ASE, DScribe,
+scikit-learn, …). To update to the latest version later, re-run the same
+command with ``--upgrade``.
+
+Alternatively, install from a local clone in editable mode — useful if you want
+to read or modify the source, or run the bundled examples:
 
 .. code-block:: text
 
@@ -21,14 +32,16 @@ TASTET is not on PyPI yet, so install it from source in editable mode:
    cd TASTET
    pip install -e .
 
-This pulls in the core scientific stack automatically (NumPy, ASE, DScribe,
-scikit-learn, …). Optional extras add tooling for specific tasks:
+From a clone you can also add the optional extras:
 
 .. code-block:: text
 
    pip install -e ".[examples]"   # run the bundled examples (adds RDKit)
    pip install -e ".[docs]"       # build this documentation (adds Sphinx)
    pip install -e ".[dev]"        # linting and tests (adds ruff, pytest)
+
+Once the accompanying paper is published, TASTET will be available on PyPI and
+installation will be as simple as ``pip install tastet``.
 
 Verify the installation
 -----------------------
