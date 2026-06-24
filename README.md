@@ -78,4 +78,4 @@ tastet/
 ## License
 
 TASTET is released under the MIT License — see [`LICENSE`](LICENSE).
-© 2025 Alejandro Cañete-Arché and the CCEM Group.
+© 2026 Alejandro Cañete-Arché and the CCEM Group.

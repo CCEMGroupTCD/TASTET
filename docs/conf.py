@@ -1,7 +1,7 @@
 """Sphinx configuration for TASTET documentation."""
 
 project = "TASTET"
-copyright = "2025, Alejandro Cañete-Arché and the CCEM Group"
+copyright = "2026, Alejandro Cañete-Arché and the CCEM Group"
 author = "Alejandro Cañete-Arché"
 
 # ── Extensions ────────────────────────────────────────────────────────
