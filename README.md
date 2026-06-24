@@ -21,7 +21,7 @@ descriptors).
 
 ```bash
 pip install -e .                # library only
-pip install -e ".[examples]"    # also run the bundled examples (RDKit)
+pip install -e ".[examples]"    # also run the bundled examples (installs RDKit)
 pip install -e ".[docs]"        # also build the Sphinx docs
 ```
 
