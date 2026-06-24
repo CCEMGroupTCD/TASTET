@@ -13,19 +13,22 @@ pip install -e ".[docs]"        # also build the Sphinx docs
 ## Quickstart
 
 ```python
+import pandas as pd
 from ase.io import read
 from tastet.soap_utils import compute_soap
 from tastet.kernel import compute_kernel
-from tastet.kpca import fit_kpca
-from tastet.plotting import plot_kpca
+from tastet.selection import select_structures
 
 structures = read("structures.traj", index=":")
 
+# Represent the structures in a SOAP-encoded kernel space
 soap_list = compute_soap(structures, r_cut=4.0, n_max=6, l_max=6, sigma=0.1)
 K = compute_kernel(soap_list, method="rematch", metric="linear", alpha=0.5)
-result = fit_kpca(K, n_components=2)
 
-plot_kpca(result, color_values=energies, color_label="Energy (eV)", show=True)
+# Select 10 space-filling representatives directly from the kernel
+meta = pd.DataFrame({"configuration_id": range(1, len(structures) + 1)})
+selected, pool, selected_indices = select_structures(K, meta, k=10, method="fps")
+print(selected_indices)
 ```
 
 ## Use cases
@@ -56,3 +59,8 @@ tastet/
 ├── sweep/           # SOAP × kernel grid search (single- and multi-channel)
 └── plotting/        # kPCA scatter, heatmaps, distance plots, styling
 ```
+
+## License
+
+TASTET is released under the MIT License — see [`LICENSE`](LICENSE).
+© 2025 Alejandro Cañete-Arché and the CCEM Group.

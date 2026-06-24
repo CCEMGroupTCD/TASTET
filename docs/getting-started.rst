@@ -4,23 +4,45 @@ Getting Started
 Installation
 ------------
 
-Clone the repository and install in editable mode:
+TASTET runs on **macOS** and **Linux** and requires **Python 3.10 or newer**.
+We recommend installing it into a fresh virtual environment (``conda`` or
+``venv``) so its dependencies stay isolated:
 
 .. code-block:: text
 
-   git clone https://github.com/youruser/tastet.git
-   cd tastet
+   conda create -n tastet python=3.11
+   conda activate tastet
+
+TASTET is not on PyPI yet, so install it from source in editable mode:
+
+.. code-block:: text
+
+   git clone https://github.com/CCEMGroupTCD/TASTET.git
+   cd TASTET
    pip install -e .
 
-To run the bundled examples, add the ``examples`` extra — it installs
-RDKit, used by the Rh-complex example to read its SDF conformer library:
+This pulls in the core scientific stack automatically (NumPy, ASE, DScribe,
+scikit-learn, …). Optional extras add tooling for specific tasks:
 
 .. code-block:: text
 
-   pip install -e ".[examples]"
+   pip install -e ".[examples]"   # run the bundled examples (adds RDKit)
+   pip install -e ".[docs]"       # build this documentation (adds Sphinx)
+   pip install -e ".[dev]"        # linting and tests (adds ruff, pytest)
 
-Each example is then driven by ``python run.py <step>``; see
-:doc:`use-cases/index` for the full walkthroughs.
+Verify the installation
+-----------------------
+
+Check that TASTET imports and reports its version:
+
+.. code-block:: text
+
+   python -c "import tastet; print(tastet.__version__)"
+
+This should print the installed version number. If this command displays any
+errors, please open an issue on our
+`issue tracker <https://github.com/CCEMGroupTCD/TASTET/issues>`_ so we can help
+and fix it.
 
 Quick Example
 -------------

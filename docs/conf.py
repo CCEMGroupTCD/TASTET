@@ -1,22 +1,22 @@
 """Sphinx configuration for TASTET documentation."""
 
 project = "TASTET"
-copyright = "2025, Alejandro Arche"
-author = "Alejandro Arche"
+copyright = "2025, Alejandro Cañete-Arché and the CCEM Group"
+author = "Alejandro Cañete-Arché"
 
 # ── Extensions ────────────────────────────────────────────────────────
 extensions = [
-    "sphinx.ext.autodoc",       # pull docstrings from code
-    "sphinx.ext.viewcode",      # add [source] links to API docs
-    "sphinx.ext.intersphinx",   # cross-link to numpy/sklearn docs
+    "sphinx.ext.autodoc",  # pull docstrings from code
+    "sphinx.ext.viewcode",  # add [source] links to API docs
+    "sphinx.ext.intersphinx",  # cross-link to numpy/sklearn docs
 ]
 
 # ── Autodoc ───────────────────────────────────────────────────────────
-autodoc_member_order = "bysource"          # keep source order, not alphabetical
-autodoc_typehints = "description"          # show type hints in the description
+autodoc_member_order = "bysource"  # keep source order, not alphabetical
+autodoc_typehints = "description"  # show type hints in the description
 autodoc_default_options = {
     "members": True,
-    "undoc-members": False,                # skip functions without docstrings
+    "undoc-members": False,  # skip functions without docstrings
     "show-inheritance": True,
 }
 
@@ -37,4 +37,5 @@ html_theme_options = {
 
 # ── Paths ─────────────────────────────────────────────────────────────
 import os, sys
+
 sys.path.insert(0, os.path.abspath(".."))  # so autodoc can import tastet
