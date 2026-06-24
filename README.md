@@ -40,7 +40,7 @@ structures = read("structures.traj", index=":")
 soap_list = compute_soap(structures, r_cut=4.0, n_max=6, l_max=6, sigma=0.1)
 K = compute_kernel(soap_list, method="rematch", metric="linear", alpha=0.5)
 
-# Select 10 space-filling representatives directly from the kernel
+# Select 10 space-filling representatives directly from the kernel space
 meta = pd.DataFrame({"configuration_id": range(1, len(structures) + 1)})
 selected, pool, selected_indices = select_structures(K, meta, k=10, method="fps")
 print(selected_indices)
