@@ -53,7 +53,8 @@ to touch are:
   (``MAX_GRID_COMBINATIONS``), and ``GRID_SEARCH_N_SAMPLES``, the number of
   conformers the sweep runs on (``None`` = all conformers).
 - **Multi-channel kernel** — ``KERNEL_CHANNELS``, the list of SOAP/kernel
-  channels combined into the product kernel (``KERNEL_COMBINE``).
+  channels combined into the product kernel (``KERNEL_COMBINE``); each
+  channel also chooses its own SOAP centers (see `Choosing SOAP Centers`_).
 - **Structure selection** — how many representatives to pick
   (``SELECTION_K``) and with which algorithm (``SELECTION_METHOD``):
   Furthest Point Sampling (FPS) or k-medoids.
@@ -67,6 +68,34 @@ to touch are:
 
 To adapt the example, edit the relevant block; the steps below read their
 parameters from it.
+
+Choosing SOAP Centers
+---------------------
+
+Every SOAP descriptor is computed *around* a set of center atoms, and that
+choice decides which part of each structure the analysis looks at.  You
+have three ways to pick the centers, in order of precedence:
+
+1. **Explicit indices** — ``centers=[10, 55, 52, 0, 1]``: the exact 0-based
+   atom indices, the same for every structure.  Use this to focus on
+   specific atoms — say, the five that define the binding pocket — rather
+   than a whole element.  Both channels of this example center this way.
+2. **By species** — ``center_atoms=["Rh"]``: center on every atom of the
+   listed element(s), resolved separately for each structure.
+3. **By SMARTS** — set ``FLEXIBLE_SMARTS`` to center on the atoms a SMARTS
+   pattern matches, e.g. a chosen functional group or substructure.
+
+Set none of them and SOAP centers on **all** atoms.  When more than one
+could apply, the higher-priority choice wins: indices over species over
+SMARTS.
+
+Where these go depends on the mode.  In tensor-product mode — used here —
+each channel carries its own choice inside its ``soap`` dict in
+``KERNEL_CHANNELS``, so channels can center differently; this example
+centers one channel on the core atoms and another on the periphery.  In
+single-kernel mode they live in ``SOAP_PARAMS`` (and in ``FIXED_SOAP_KW``
+for the grid search), where the ``SOAP centers: ...`` line printed at
+runtime reports the choice that was actually used.
 
 Data Ingestion
 --------------
