@@ -114,44 +114,41 @@ def resolve_soap_centers(
     has_center_atoms = bool(center_atoms)
     has_flex_smarts = bool(getattr(cfg, "FLEXIBLE_SMARTS", None))
 
-    # ── Explicit indices win over everything else ─────────────────────
+    # ── One warning covering every conflicting combination ────────────
+    # Collect each centering source that is set, in priority order
+    # (explicit indices > species > SMARTS). If more than one is set the
+    # first wins and the rest are ignored — name them all so the
+    # effective choice is never a surprise.
+    active: list[tuple[str, str]] = []
     if centers is not None:
-        shadowed = []
-        if has_center_atoms:
-            shadowed.append(f"center_atoms={center_atoms}")
-        if has_flex_smarts:
-            shadowed.append("FLEXIBLE_SMARTS")
-        if shadowed:
-            preview = list(centers)[:5]
-            ellipsis = "..." if len(centers) > 5 else ""
-            warnings.warn(
-                f"\n  Explicit centers={preview}{ellipsis} is set, "
-                f"shadowing {' and '.join(shadowed)}.\n"
-                f"  → Proceeding with the explicit indices.",
-                stacklevel=2,
-            )
+        preview = list(centers)[:5]
+        ellipsis = "..." if len(centers) > 5 else ""
+        active.append(("centers", f"explicit indices {preview}{ellipsis}"))
+    if has_center_atoms:
+        active.append(("center_atoms", f"center_atoms={center_atoms}"))
+    if has_flex_smarts:
+        active.append(("FLEXIBLE_SMARTS", f"FLEXIBLE_SMARTS={cfg.FLEXIBLE_SMARTS}"))
+
+    if len(active) > 1:
+        winner_name, winner_desc = active[0]
+        ignored = " and ".join(name for name, _ in active[1:])
+        warnings.warn(
+            "\n  More than one SOAP-center source is set: "
+            + "; ".join(desc for _, desc in active)
+            + f".\n  → Using {winner_name} ({winner_desc}); ignoring {ignored}."
+            "\n  Set only one to silence this warning.",
+            stacklevel=2,
+        )
+
+    # ── Resolve in priority order ─────────────────────────────────────
+    if centers is not None:
         print(f"SOAP centers: {len(centers)} explicit indices")
         return list(centers)
 
-    # ── Both center_atoms and FLEXIBLE_SMARTS: warn, prefer the former ─
-    if has_center_atoms and has_flex_smarts:
-        warnings.warn(
-            f"\n  Both center_atoms={center_atoms} and FLEXIBLE_SMARTS="
-            f"{cfg.FLEXIBLE_SMARTS} are set in config.\n"
-            f"  → Proceeding with center_atoms={center_atoms}.  "
-            f"FLEXIBLE_SMARTS will be ignored.\n"
-            f"  If you intended to use SMARTS-based centers instead, "
-            f"set center_atoms=None.",
-            stacklevel=2,
-        )
-        return None  # SOAP will use center_atoms from the caller's dict
-
-    # ── Only center_atoms ─────────────────────────────────────────────
     if has_center_atoms:
         print(f"SOAP centers: species {center_atoms} (from center_atoms)")
         return None
 
-    # ── Only FLEXIBLE_SMARTS ──────────────────────────────────────────
     if has_flex_smarts:
         flex_idx = get_flexible_indices()
         print(
@@ -159,7 +156,6 @@ def resolve_soap_centers(
         )
         return flex_idx
 
-    # ── Neither → all atoms ───────────────────────────────────────────
     print("SOAP centers: all atoms (no centers, center_atoms, or FLEXIBLE_SMARTS set)")
     return None
 
@@ -172,11 +168,29 @@ def resolve_channel_soap(channel: dict) -> dict:
     Otherwise the SOAP dict is returned unchanged (centers are either
     specified via ``center_atoms`` or default to all atoms).
 
+    When ``centers_from_smarts`` is *True* and the channel's ``soap``
+    dict *also* sets ``centers`` or ``center_atoms``, the SMARTS-derived
+    indices win and a warning names what was ignored.
+
     :param channel: A single entry from ``KERNEL_CHANNELS``.
     :returns: Keyword dict ready to pass to :func:`tastet.soap_utils.compute_soap`.
     """
     soap_kw = dict(channel["soap"])
     if channel.get("centers_from_smarts"):
+        shadowed = []
+        if soap_kw.get("centers") is not None:
+            shadowed.append("centers")
+        if soap_kw.get("center_atoms"):
+            shadowed.append(f"center_atoms={soap_kw['center_atoms']}")
+        if shadowed:
+            warnings.warn(
+                f"\n  Channel {channel.get('name', '?')!r} sets "
+                f"centers_from_smarts=True together with "
+                f"{' and '.join(shadowed)} in its soap dict.\n"
+                f"  → Using the SMARTS-derived centers; ignoring "
+                f"{' and '.join(shadowed)}.",
+                stacklevel=2,
+            )
         soap_kw["centers"] = get_flexible_indices()
     return soap_kw
 
