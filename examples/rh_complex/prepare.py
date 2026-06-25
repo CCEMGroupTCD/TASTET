@@ -3,7 +3,7 @@
 Shared interface (imported by run.py):
     ensure_database()
     load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]
-    resolve_soap_centers()      -> list[int] | None
+    resolve_soap_centers(center_atoms, centers) -> list[int] | None
     resolve_channel_soap()      -> dict
     get_flexible_indices()      -> list[int]
 
@@ -43,6 +43,7 @@ _UNSET = object()  # sentinel for resolve_soap_centers default
 
 # ── Shared interface ──────────────────────────────────────────────────
 
+
 def ensure_database() -> None:
     """Build the conformer database from the SDF if it doesn't exist."""
     tastet_ensure_database(cfg.db_path(), build_fn=_build_database)
@@ -60,10 +61,7 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
         metadata. ``meta`` always contains ``configuration_id``.
     """
     if not cfg.db_path().exists():
-        sys.exit(
-            f"Database not found: {cfg.db_path()}.  "
-            f"Run the 'db' step first."
-        )
+        sys.exit(f"Database not found: {cfg.db_path()}.  Run the 'db' step first.")
 
     n_samples = getattr(cfg, "GRID_SEARCH_N_SAMPLES", None)
     if n_samples is None:
@@ -75,27 +73,40 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
     return subsample_from_db(cfg.db_path(), n_samples, seed=cfg.SEED)
 
 
-def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
+def resolve_soap_centers(
+    center_atoms=_UNSET,
+    centers: list[int] | None = None,
+) -> list[int] | None:
     """Decide which atoms to use as SOAP centers.
 
-    Priority:
+    Priority (highest → lowest):
 
-    1. ``center_atoms`` is a non-empty list → return ``None`` (SOAP
-       centers on those species directly; no index list needed).
-    2. ``FLEXIBLE_SMARTS`` set in config → return a list of 0-based
-       indices for the flexible atoms.
-    3. Neither → return ``None`` (all atoms).
+    1. ``centers`` (explicit 0-based indices) → returned as-is. The same
+       indices are used for every structure.
+    2. ``center_atoms`` (species names) → return ``None``; SOAP centers
+       on those species directly, resolved per structure (no index list
+       needed).
+    3. ``FLEXIBLE_SMARTS`` set in config → return a list of 0-based
+       indices for the SMARTS-matched flexible atoms.
+    4. None of the above → return ``None`` (all atoms).
 
-    If *both* ``center_atoms`` and ``FLEXIBLE_SMARTS`` are set, a
-    warning is issued and ``center_atoms`` takes precedence.
+    Whenever a higher-priority source is set, any lower-priority ones
+    are ignored with a warning, so the effective selection is never
+    silently overridden.
 
     :param center_atoms: Explicit center species (including ``None``).
         When left as the ``_UNSET`` sentinel (the default), the value
         is looked up from ``SOAP_PARAMS["center_atoms"]``. Passing it
         explicitly lets callers point at a different source of truth
         (e.g. ``FIXED_SOAP_KW`` for the grid search).
-    :returns: A list of 0-based atom indices (flexible-atom case), or
-        ``None`` (species-based or all-atoms case).
+    :param centers: Explicit 0-based atom indices. Takes precedence over
+        every other source when not ``None``. Like *center_atoms*, the
+        usual source is ``SOAP_PARAMS["centers"]`` (or
+        ``FIXED_SOAP_KW["centers"]`` for the grid search), passed in by
+        the caller.
+    :returns: A list of 0-based atom indices (explicit-``centers`` or
+        flexible-atom case), or ``None`` (species-based or all-atoms
+        case, where SOAP resolves the centers itself).
     """
     if center_atoms is _UNSET:
         center_atoms = cfg.SOAP_PARAMS.get("center_atoms")
@@ -103,7 +114,26 @@ def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
     has_center_atoms = bool(center_atoms)
     has_flex_smarts = bool(getattr(cfg, "FLEXIBLE_SMARTS", None))
 
-    # ── Both set: warn and prefer center_atoms ────────────────────────
+    # ── Explicit indices win over everything else ─────────────────────
+    if centers is not None:
+        shadowed = []
+        if has_center_atoms:
+            shadowed.append(f"center_atoms={center_atoms}")
+        if has_flex_smarts:
+            shadowed.append("FLEXIBLE_SMARTS")
+        if shadowed:
+            preview = list(centers)[:5]
+            ellipsis = "..." if len(centers) > 5 else ""
+            warnings.warn(
+                f"\n  Explicit centers={preview}{ellipsis} is set, "
+                f"shadowing {' and '.join(shadowed)}.\n"
+                f"  → Proceeding with the explicit indices.",
+                stacklevel=2,
+            )
+        print(f"SOAP centers: {len(centers)} explicit indices")
+        return list(centers)
+
+    # ── Both center_atoms and FLEXIBLE_SMARTS: warn, prefer the former ─
     if has_center_atoms and has_flex_smarts:
         warnings.warn(
             f"\n  Both center_atoms={center_atoms} and FLEXIBLE_SMARTS="
@@ -124,11 +154,13 @@ def resolve_soap_centers(center_atoms=_UNSET) -> list[int] | None:
     # ── Only FLEXIBLE_SMARTS ──────────────────────────────────────────
     if has_flex_smarts:
         flex_idx = get_flexible_indices()
-        print(f"SOAP centers: {len(flex_idx)} flexible-atom indices (from FLEXIBLE_SMARTS)")
+        print(
+            f"SOAP centers: {len(flex_idx)} flexible-atom indices (from FLEXIBLE_SMARTS)"
+        )
         return flex_idx
 
     # ── Neither → all atoms ───────────────────────────────────────────
-    print("SOAP centers: all atoms (no center_atoms or FLEXIBLE_SMARTS set)")
+    print("SOAP centers: all atoms (no centers, center_atoms, or FLEXIBLE_SMARTS set)")
     return None
 
 
@@ -197,12 +229,15 @@ def get_flexible_indices(
     flex_idx = sorted(flex_all)
     n_total = mol.GetNumAtoms()
     h_note = " (incl. H)" if include_h else " (no H)"
-    print(f"Flexible centers: {len(flex_idx)}/{n_total} atoms{h_note} "
-          f"({n_total - len(flex_idx)} rigid)")
+    print(
+        f"Flexible centers: {len(flex_idx)}/{n_total} atoms{h_note} "
+        f"({n_total - len(flex_idx)} rigid)"
+    )
     return flex_idx
 
 
 # ── Use-case-specific: database construction ──────────────────────────
+
 
 def _build_database() -> None:
     """Parse the SDF file and write all conformers to .db + .csv.
@@ -218,6 +253,7 @@ def _build_database() -> None:
 
 
 # ── Use-case-specific: SDF parsing ───────────────────────────────────
+
 
 def load_conformers(sdf_path=None) -> list[Atoms]:
     """Read all conformers from an SDF file and return ASE Atoms objects.
@@ -255,5 +291,7 @@ def load_conformers(sdf_path=None) -> list[Atoms]:
     if not atoms_list:
         raise RuntimeError("No conformers found in SDF.")
 
-    print(f"Loaded {len(atoms_list)} conformers ({atoms_list[0].get_chemical_formula()})")
+    print(
+        f"Loaded {len(atoms_list)} conformers ({atoms_list[0].get_chemical_formula()})"
+    )
     return atoms_list

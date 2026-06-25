@@ -34,12 +34,25 @@ USE_TENSOR_PRODUCT: bool = True
 # ─────────────────────────────────────────────────────────────────────
 #  SINGLE-KERNEL MODE  (used when USE_TENSOR_PRODUCT = False)
 # ─────────────────────────────────────────────────────────────────────
+# SOAP center selection — priority, resolved at runtime by
+# prepare.resolve_soap_centers (applies both to SOAP_PARAMS below and to
+# FIXED_SOAP_KW for the grid search):
+#   1. centers=[i, j, ...]   explicit 0-based indices (highest priority);
+#                            the same indices for every structure. Use
+#                            this to center on specific atoms, e.g. five
+#                            particular atoms rather than a whole element.
+#   2. center_atoms=["Rh"]   center on every atom of these species.
+#   3. FLEXIBLE_SMARTS       center on the SMARTS-matched flexible atoms.
+#   4. none of the above     center on all atoms.
+# Set only one; a higher-priority key shadows the lower ones (with a
+# warning), and the runtime "SOAP centers: ..." line reports what was used.
 SOAP_PARAMS: dict = dict(
     r_cut=4.0,
     sigma=0.1,
     n_max=8,
     l_max=8,
     center_atoms=["Rh"],
+    # centers=[10, 55, 52, 0, 1],  # explicit indices (shadow center_atoms)
     average="off",
     normalize=True,
     n_jobs=-1,
@@ -62,9 +75,15 @@ MAX_GRID_COMBINATIONS: int = 600
 # subsample) for the multi-channel product sweep, which is far more expensive.
 GRID_SEARCH_N_SAMPLES: int | None = 100
 
+# Constant SOAP kwargs across the sweep. Center selection follows the
+# same priority as SOAP_PARAMS (see the block above): the grid search
+# reads it from here, not from SOAP_PARAMS. Here center_atoms is swept in
+# SOAP_GRID instead; to pin specific atoms across the whole sweep, add
+# centers=[...] below (it shadows any swept center_atoms).
 FIXED_SOAP_KW: dict = dict(
     n_max=8,
     l_max=8,
+    # centers=[10, 55, 52, 0, 1],  # explicit indices, fixed across the sweep
     average="off",
     normalize=True,
     n_jobs=-1,
@@ -274,11 +293,20 @@ def _use_channels() -> bool:
 def _centers_tag() -> str:
     """Short identifier for the active SOAP center selection.
 
-    :returns: Tag like ``"c-Rh"``, ``"c-Cu-Zn"``, ``"flex-<hash>"``,
-        or ``"c-all"``.
+    Mirrors the resolution order of
+    :func:`prepare.resolve_soap_centers` so that each distinct center
+    selection maps to its own SOAP cache directory (explicit indices
+    must not collide with an all-atoms run).
+
+    :returns: Tag like ``"c-idx-<hash>"`` (explicit indices), ``"c-Rh"``,
+        ``"c-Cu-Zn"``, ``"flex-<hash>"``, or ``"c-all"``.
     """
     import hashlib
 
+    explicit = SOAP_PARAMS.get("centers")
+    if explicit:
+        h = hashlib.sha256(str(sorted(explicit)).encode()).hexdigest()[:8]
+        return f"c-idx-{h}"
     ca = SOAP_PARAMS.get("center_atoms")
     if ca:
         return "c-" + "-".join(sorted(ca))

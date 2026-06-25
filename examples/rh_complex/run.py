@@ -165,6 +165,7 @@ def _grid_search() -> None:
 
     centers = resolve_soap_centers(
         center_atoms=cfg.FIXED_SOAP_KW.get("center_atoms"),
+        centers=cfg.FIXED_SOAP_KW.get("centers"),
     )
     fixed_kw = dict(cfg.FIXED_SOAP_KW)
     if centers is not None:
@@ -193,7 +194,7 @@ def _soap() -> None:
     atoms, _ = load_atoms_and_meta(cfg.db_path())
 
     if not getattr(cfg, "USE_TENSOR_PRODUCT", False):
-        centers = resolve_soap_centers()
+        centers = resolve_soap_centers(centers=cfg.SOAP_PARAMS.get("centers"))
         soap_step(cfg, atoms, centers=centers)
         return
 

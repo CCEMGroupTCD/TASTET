@@ -40,12 +40,23 @@ USE_TENSOR_PRODUCT: bool = False
 # normalize: L2-normalize each per-atom SOAP vector to unit length
 # *before* computing the kernel.  Recommended for REMatch with
 # non-linear metrics (rbf, polynomial) to avoid numerical instability.
+#
+# SOAP center selection — priority (applies to SOAP_PARAMS here and to
+# FIXED_SOAP_KW for the grid search):
+#   1. centers=[i, j, ...]   explicit 0-based indices (highest priority);
+#                            the same indices for every structure. Use to
+#                            center on specific atoms rather than a whole
+#                            element.
+#   2. center_atoms=["Cu"]   center on every atom of these species.
+#   3. neither               center on all atoms.
+# centers, when set, takes precedence over center_atoms.
 SOAP_PARAMS: dict = dict(
     r_cut=4.0,
     sigma=0.1,
     n_max=8,
     l_max=4,
     center_atoms=["Cu"],
+    # centers=[0, 1, 2, 3, 4],  # explicit indices (shadow center_atoms)
     average="off",
     normalize=False,
     n_jobs=-1,
@@ -77,6 +88,7 @@ MAX_GRID_COMBINATIONS: int = 500
 # the production ones.
 FIXED_SOAP_KW: dict = dict(
     center_atoms=["Cu"],
+    # centers=[0, 1, 2, 3, 4],  # explicit indices (shadow center_atoms)
     average="off",
     normalize=False,
     n_jobs=-1,
@@ -218,8 +230,19 @@ def _use_channels() -> bool:
 def _centers_tag() -> str:
     """Short identifier for the active SOAP center selection.
 
-    :returns: Tag like ``"c-Cu"``, ``"c-Cu-Zn"``, or ``"c-all"``.
+    Explicit ``centers`` indices, ``center_atoms`` species, and the
+    all-atoms default each map to a distinct SOAP cache directory, so an
+    explicit-indices run never collides with an all-atoms one.
+
+    :returns: Tag like ``"c-idx-<hash>"`` (explicit indices), ``"c-Cu"``,
+        ``"c-Cu-Zn"``, or ``"c-all"``.
     """
+    explicit = SOAP_PARAMS.get("centers")
+    if explicit:
+        import hashlib
+
+        h = hashlib.sha256(str(sorted(explicit)).encode()).hexdigest()[:8]
+        return f"c-idx-{h}"
     ca = SOAP_PARAMS.get("center_atoms")
     if ca:
         return "c-" + "-".join(sorted(ca))
