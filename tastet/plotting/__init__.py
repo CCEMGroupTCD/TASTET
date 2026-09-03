@@ -7,7 +7,14 @@ from tastet.plotting.distance import (
     plot_grid_histograms,
 )
 from tastet.plotting.heatmap import plot_grid_heatmaps, infer_heatmap_layout
-from tastet.plotting.style import set_mpl_style, apply_axis_style, savefig, cmap, palette
+from tastet.plotting.style import (
+    set_mpl_style,
+    apply_axis_style,
+    match_major_ticks,
+    savefig,
+    cmap,
+    palette,
+)
 
 __all__ = [
     "plot_kpca",
@@ -19,6 +26,7 @@ __all__ = [
     "infer_heatmap_layout",
     "set_mpl_style",
     "apply_axis_style",
+    "match_major_ticks",
     "savefig",
     "cmap",
     "palette",

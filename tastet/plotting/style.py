@@ -8,7 +8,7 @@ helpers used across every plotting module.
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.ticker import AutoMinorLocator, FuncFormatter
+from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator
 from matplotlib.markers import MarkerStyle
 
 palette: dict[str, str] = {
@@ -144,6 +144,28 @@ def apply_axis_style(
         if minors:
             m0 = minors[0].get_marker()
             plt.setp(minors, marker=MarkerStyle(m0, capstyle="round"))
+
+
+def match_major_ticks(ax, *, nbins: int = 5) -> None:
+    """Give the x- and y-axis the same major-tick step.
+
+    Matplotlib's default locator derives its tick count from the label
+    space an axis has, which differs between the horizontal and the
+    vertical axis. On a square plot whose two axes span the same range --
+    a parity plot -- that yields two different steps for one shared
+    quantity (e.g. 1 eV across x but 0.5 eV up y). Fixing the number of
+    intervals makes the step a function of the shared data range alone, so
+    both axes agree.
+
+    Call after the limits are set and before :func:`apply_axis_style`,
+    whose minor locators then subdivide the shared step.
+
+    :param ax: Target axes; both axes are expected to span the same range.
+    :param nbins: Maximum number of intervals per axis. The default of
+        ``5`` gives whole-unit steps over a range of a few units.
+    """
+    for axis in (ax.xaxis, ax.yaxis):
+        axis.set_major_locator(MaxNLocator(nbins=nbins, steps=[1, 2, 2.5, 5, 10]))
 
 
 def styled_legend(ax, **kwargs):
