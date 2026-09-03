@@ -116,6 +116,27 @@ are committed input data, each a two-column ``file,E (Ha)`` CSV:
 ΔE is always recomputed from ``E (Ha)``; round-2 plots reference the
 study-wide found minimum, so round 1 and round 2 share one zero.
 
+A third CSV, ``input/energies_uff_filter.csv``, holds the baseline the
+selection is measured against: the 25 conformers with the lowest OpenBabel
+UFF energy, relaxed at the same level of theory as rounds 1 and 2.  It adds
+an ``E UFF (kcal/mol)`` column beside the usual ``E (Ha)``, so ΔE is
+recomputed from absolute energies here too and all three CSVs share one
+zero.  ``analysis/plot_uff_parity.py`` reads it and writes the parity plot
+to ``uff_filter/`` inside the active analysis directory; that figure answers
+what a force-field pre-filter would have bought instead of the
+SOAP-kernel-FPS selection.
+
+``analysis/plot_uff_energy_kpca.py`` is the force-field companion to
+``plot_energy_kpca.py``: it overlays the same 25 conformers on the production
+kPCA colored by ΔE, on the study-wide zero, so the two selections can be
+compared on one map.  Both take ``--kpca-dir`` for a kPCA produced by an
+earlier kernel configuration.
+
+Note that these 25 relaxations start from the *UFF-optimized* geometries
+rather than the RDKit-embedded ones the rounds start from, so a conformer
+run both ways does not reach the same minimum — the ids identify the
+starting conformer, not the relaxed structure.
+
 Round 1 (unsupervised)
 ----------------------
 

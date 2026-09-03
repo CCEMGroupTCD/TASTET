@@ -272,6 +272,22 @@ ROUND2_KERNEL_COMBINE: str = "product"
 
 SDF_FILE: Path = USE_CASE_DIR / "input" / "open_babel_Rh_conformers.sdf"
 
+# UFF-filter baseline (analysis/plot_uff_parity.py): the 25 conformers with
+# the lowest OpenBabel UFF energy, relaxed with DFT. This is the alternative
+# to the SOAP-kernel-FPS selection -- filter on the force field the conformer
+# generator already provides, then spend the DFT budget on those.
+#
+# DFT energies are absolute, in the ENERGY_COL convention of the round CSVs,
+# so ΔE is recomputed here too and all three share one zero. They were run at
+# the same level of theory as rounds 1 and 2 (PBE0-D3BJ/def2-SVPP), verified
+# against the Gaussian logs deposited in files_iochembd/Rh_conformers/.
+#
+# `file` numbering is `configuration_id` (SDF read order, == the SDF's
+# `unique_index` property), the same as the round CSVs -- confirmed by
+# matching each Gaussian input geometry to its SDF record.
+UFF_FILTER_CSV: Path = USE_CASE_DIR / "input" / "energies_uff_filter.csv"
+UFF_ENERGY_COL: str = "E UFF (kcal/mol)"  # force-field energy column
+
 # FLEXIBLE_SMARTS: list[str] = ["..."]  # uncomment to use SMARTS-derived centers
 FLEXIBLE_INCLUDE_H: bool = False
 
