@@ -75,6 +75,11 @@ tastet/
 └── plotting/        # kPCA scatter, heatmaps, distance plots, styling
 ```
 
+## Citation
+
+If you use TASTET in your work, please cite the accompanying preprint on
+ChemRxiv: [doi:10.26434/chemrxiv.15008498/v1](https://doi.org/10.26434/chemrxiv.15008498/v1).
+
 ## License
 
 TASTET is released under the MIT License — see [`LICENSE`](LICENSE).
