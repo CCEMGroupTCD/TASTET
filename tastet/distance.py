@@ -32,7 +32,7 @@ D_MAX: float = float(np.sqrt(2.0))
 
 
 def pairwise_distances(K: np.ndarray) -> np.ndarray:
-    """Compute kernel-induced distances for every unique pair.
+    r"""Compute kernel-induced distances for every unique pair.
 
     :param K: Normalized kernel matrix with diagonal approximately equal to 1.
     :type K: ndarray, shape (N, N)

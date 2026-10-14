@@ -1,4 +1,4 @@
-"""Distil the nanoclusters CKA grid search into a four-panel figure.
+"""Distill the nanoclusters CKA grid search into a four-panel figure.
 
 The pipeline heatmap (``output/production/grid_search/<hash>/heatmaps.png``)
 has one panel per combination of the non-axis SOAP/kernel knobs — far too
@@ -7,9 +7,10 @@ and renders just four panels, chosen for spread rather than at random:
 
 * the panel holding the single **highest**-CKA cell;
 * the panel holding the single **lowest**-CKA cell;
-* two intermediate panels whose *mean* CKA is closest to evenly spaced
-  targets across the range of panel means, so the four panels differ in
-  overall color instead of clustering at one end of the scale.
+* two further panels chosen by greedy maximin dispersion of the panel
+  means (each new panel is the one farthest from every panel already
+  chosen), so the four panels differ in overall color instead of
+  clustering at one end of the scale.
 
 Axes and the shared color scale follow the pipeline heatmap (this example
 runs in single-kernel mode, so the axes are two SOAP knobs); the color

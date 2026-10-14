@@ -9,7 +9,7 @@ ranking justifies the re-optimized representation recorded in
 Outputs land under the round-2 namespace
 (``output/<ROUND2_ANALYSIS_NAME>/grid_search/<hash>/``). Run with::
 
-    python round2/reoptimise.py
+    python round2/reoptimize.py
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def cka_grid() -> None:
     :func:`tastet.pipeline.grid_search_step` (single-kernel mode) or
     :func:`tastet.sweep.multichannel.grid_search_multichannel_step`
     (multi-channel mode), passing a :class:`~tastet.metrics.cka.CKAScorer`
-    parameterised by :attr:`config.CKA_TARGET_KERNEL`.
+    parameterized by :attr:`config.CKA_TARGET_KERNEL`.
 
     The supervised sweep restricts itself to the labeled subset
     (round-1 conformers) so the heatmap reflects only what the energies

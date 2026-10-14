@@ -203,7 +203,7 @@ def zoom_select() -> None:
     """Focused selection within a user-defined kPCA box region.
 
     Picks :data:`config.ZOOM_K` structures from inside
-    :data:`config.ZOOM_BOX`. Round-1 conformers in the box are honoured:
+    :data:`config.ZOOM_BOX`. Round-1 conformers in the box are honored:
     FPS seeds on them; k-medoids excludes them. Outputs go to
     ``selection_zoom/`` and mirror :func:`select`, with the box drawn on
     the 2-D plots.

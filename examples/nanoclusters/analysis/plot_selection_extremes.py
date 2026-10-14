@@ -12,9 +12,8 @@ additionally highlights the two extremes of the picks:
 The point is to read off how far apart the two sit in the projected
 space of the *initial* structures: the kPCA is built from the selected
 snapshots as sampled, not from their DFT-relaxed counterparts.  The
-in-plot legend reports their kPC#1/kPC#2 separation, and the console
-additionally places that separation within the distribution of all
-pairwise distances among the picks.
+console reports their kPC#1/kPC#2 separation and places it within the
+distribution of all pairwise distances among the picks.
 
 Run with::
 
@@ -174,14 +173,6 @@ def plot_extremes(
             )
         )
 
-    handles.append(
-        Line2D(
-            [],
-            [],
-            linestyle="none",
-            marker="",
-        )
-    )
     styled_legend(ax, handles=handles, loc="upper left", fontsize=8)
 
     savefig(fig, out_path, also_pdf=True)

@@ -18,21 +18,18 @@ if TYPE_CHECKING:
     from tastet.kpca import KPCAResult
 
 
-# Ordered list of distinct hex colors for the categorical legend path
-# (facet, site_type, stability, site_label, …). Drawn from the main
-# color-blind-safe palette first, then the extended palette_2, so the
-# most distinguishable colors are used before the lighter ones. Built
-# from hex values and de-duplicated, so a color shared by both
-# palettes (e.g. a "blue") is only listed once. With ~17 distinct
-# colors this covers the full site-label set without cycling.
+# Ordered list of distinct hex colors for the categorical legend path.
+# Drawn from the main color-blind-safe palette first, then the extended
+# palette_2, so the most distinguishable colors are used before the
+# lighter ones. Built from hex values and de-duplicated, so a color
+# shared by both palettes (e.g. a "blue") is only listed once.
 def _build_categorical_colors() -> list[str]:
     """Order palette colors by mutual contrast, de-duplicated to hex.
 
     The lead colors form a maximally-distinguishable sequence — dark
     blue then orange, the same two hues that anchor the continuous
-    :data:`cmap` extremes — so a *binary* categorical column (e.g.
-    ``facet`` 100/111) reads as a clear blue-vs-orange split rather than
-    the two near-identical oranges the raw palette order produced. The
+    :data:`cmap` extremes — so a *binary* categorical column reads as a
+    blue-vs-orange split rather than two near-identical oranges. The
     remaining ``palette`` and ``palette_2`` colors follow for higher
     class counts, de-duplicated so a hue shared by both palettes is
     listed once.
@@ -68,7 +65,7 @@ def _legend_ncol(n_entries: int, max_per_row: int = 6) -> int:
     """Columns for a horizontal bottom legend.
 
     Spreads *n_entries* across at most *max_per_row* columns so a long
-    site-label list wraps into a few short rows instead of one tall
+    class list wraps into a few short rows instead of one tall
     single column. Capped at *max_per_row* and at the entry count.
 
     :param n_entries: Number of legend entries (distinct classes).
@@ -82,12 +79,11 @@ def _categorical_color_map(values: np.ndarray) -> dict:
     """Map each distinct value to a color from the chained palettes.
 
     Distinct values are sorted for a stable, reproducible legend order
-    (so ``facet`` 100 / 111 and ``site_label`` strings always get the
-    same colors across runs). Colors are drawn from ``palette`` then
-    ``palette_2`` (see :data:`_CATEGORICAL_COLORS`); they only cycle if
-    there are more classes than the ~17 available distinct colors, in
-    which case a warning is emitted since the scatter becomes
-    ambiguous.
+    (the same class always gets the same color across runs). Colors are
+    drawn from ``palette`` then ``palette_2`` (see
+    :data:`_CATEGORICAL_COLORS`); they only cycle if there are more
+    classes than the ~17 available distinct colors, in which case a
+    warning is emitted since the scatter becomes ambiguous.
 
     :param values: Per-point categorical labels (strings or ints).
     :returns: ``{value: hex_color}``.
@@ -130,9 +126,9 @@ def _plot_categorical_3d(ax, projections, values, color_map) -> None:
         )
 
 
-# Marker shapes for the second categorical channel (e.g. site type
-# B/F/H/Q/T), used when color encodes a different attribute (e.g.
-# composition). Distinct, filled, easily told apart at small size.
+# Marker shapes for the second categorical channel, used when color
+# encodes a different attribute. Distinct, filled, easily told apart at
+# small size.
 _MARKER_SHAPES: tuple[str, ...] = ("o", "s", "^", "D", "v", "P", "X", "*", "<", ">")
 
 
@@ -153,12 +149,10 @@ def _marker_map(values: np.ndarray) -> dict:
 def _continuous_norm(values: np.ndarray, *, vmin=None, vmax=None):
     """Build a colorbar norm for a continuous color channel.
 
-    Uses explicit *vmin* / *vmax* when given (e.g. to pin ``% Al`` to
-    0–100 for cross-subset comparability); otherwise derives the range
-    from the finite *values* so an arbitrary channel such as ``delta_g``
-    spans its own data range instead of being squashed against a fixed
-    0–100 scale. Falls back to a unit range when no finite value is
-    present or the range is degenerate.
+    Uses explicit *vmin* / *vmax* when given (e.g. to pin a percentage
+    channel to 0–100 for cross-subset comparability); otherwise derives
+    the range from the finite *values*. Falls back to a unit range when
+    no finite value is present or the range is degenerate.
 
     :param values: Per-point continuous values (may contain NaNs).
     :param vmin: Lower-bound override, or ``None`` to use the data min.
@@ -213,6 +207,8 @@ def _two_legends(
     c_ncol = _legend_ncol(len(color_handles))
     m_rows = int(np.ceil(len(marker_handles) / m_ncol))
     c_rows = int(np.ceil(len(color_handles) / c_ncol))
+    m_rows += 1 if marker_label else 0
+    c_rows += 1 if color_label else 0
 
     # Anchor BOTH legends in figure coordinates (not axes-fraction), so
     # the later subplots_adjust — which resizes the axes — does not
@@ -230,7 +226,7 @@ def _two_legends(
         handles=marker_handles,
         frameon=False, loc="upper center",
         bbox_to_anchor=(0.5, marker_y), bbox_transform=fig.transFigure,
-        ncol=m_ncol,
+        ncol=m_ncol, title=marker_label or None,
     )
     ax.add_artist(leg_marker)  # keep first legend when adding the second
 
@@ -238,7 +234,7 @@ def _two_legends(
         handles=color_handles,
         frameon=False, loc="upper center",
         bbox_to_anchor=(0.5, color_y), bbox_transform=fig.transFigure,
-        ncol=c_ncol,
+        ncol=c_ncol, title=color_label or None,
     )
     return m_rows + c_rows + 2  # +2 for the inter-legend gap
 
@@ -271,14 +267,14 @@ def _marker_legend(
     ax.legend(
         handles=handles, frameon=False, loc="lower center",
         bbox_to_anchor=(0.5, y), bbox_transform=fig.transFigure,
-        ncol=ncol,
+        ncol=ncol, title=marker_label or None,
     )
-    return n_rows
+    return n_rows + (1 if marker_label else 0)
 
 
 def _plot_color_marker_2d(ax, projections, color_values, marker_values,
                           color_map, marker_map) -> None:
-    """Scatter with color = composition, marker = site type (2-D)."""
+    """Scatter with categorical color and categorical marker (2-D)."""
     for mval, marker in marker_map.items():
         for cval, color in color_map.items():
             mask = (marker_values == mval) & (color_values == cval)
@@ -310,11 +306,10 @@ def _plot_continuous_marker_2d(ax, projections, color_values, marker_values,
                                marker_map, cmap, norm) -> None:
     """Scatter with continuous color + categorical marker (2-D).
 
-    Color encodes a continuous value (e.g. percent Al, or delta_g)
-    under a shared *norm*, so a single colorbar stays comparable across
-    marker groups; marker shape encodes the categorical channel (e.g.
-    site type). One scatter call per marker class, masking on the marker
-    value.
+    Color encodes a continuous value under a shared *norm*, so a single
+    colorbar stays comparable across marker groups; marker shape encodes
+    the categorical channel. One scatter call per marker class, masking
+    on the marker value.
     """
     for mval, marker in marker_map.items():
         mask = marker_values == mval
@@ -360,16 +355,13 @@ def plot_kpca(
 
     * ``color_values is None`` → solid :data:`palette["blue"]` scatter.
     * ``categorical=False`` (default, *continuous*) → points colored by
-      the project gradient with a colorbar (e.g. ``delta_g``).
+      the project gradient with a colorbar.
     * ``categorical=True`` → each distinct value gets a discrete color
-      and a bottom legend (e.g. ``facet``, ``stability``).
+      and a bottom legend.
     * ``categorical=False`` **and** ``marker_values`` given →
       *continuous* color (colorbar) + categorical *marker shape* (bottom
-      legend). Used by ``site_label`` (color = ``% Al``, marker = site
-      type) and, with ``KPCA_MARKER_BY_SITE_TYPE`` set, by continuous
-      columns such as ``delta_g`` (color = ``delta_g``, marker = site
-      type). The colorbar range follows the data unless *vmin* / *vmax*
-      are passed.
+      legend). The colorbar range follows the data unless *vmin* /
+      *vmax* are passed.
     * ``categorical=True`` **and** ``marker_values`` given → two
       categorical channels: *color* encodes ``color_values`` and
       *marker shape* encodes ``marker_values``, with two stacked
@@ -438,16 +430,13 @@ def plot_kpca(
         ax.legend(
             frameon=False,
             loc="upper center", bbox_to_anchor=(0.5, -0.16),
-            ncol=ncol,
+            ncol=ncol, title=color_label or None,
         )
         # Reserve bottom margin for the legend, scaled to its row count.
-        n_rows = int(np.ceil(len(color_map) / ncol))
+        n_rows = int(np.ceil(len(color_map) / ncol)) + (1 if color_label else 0)
         fig.subplots_adjust(bottom=min(0.5, 0.22 + 0.06 * n_rows))
     elif marker_values is not None:
         # Continuous color (colorbar) + categorical marker (legend).
-        # Used by any continuous channel that should also encode site
-        # type as marker shape: site_label colors by % Al, delta_g by
-        # its own data range, etc.
         from matplotlib.cm import ScalarMappable
         cvals = np.asarray(color_values, dtype=float)
         mvals = np.asarray(marker_values)
@@ -584,12 +573,12 @@ def plot_kpca_3d(
         ax.legend(
             frameon=False,
             loc="upper center", bbox_to_anchor=(0.5, -0.06),
-            ncol=ncol,
+            ncol=ncol, title=color_label or None,
         )
         # 3-D axes have no constrained_layout, so reserve room at the
         # bottom for the horizontal legend (otherwise it clips on save,
         # which omits bbox_inches="tight" by design). Scale to row count.
-        n_rows = int(np.ceil(len(color_map) / ncol))
+        n_rows = int(np.ceil(len(color_map) / ncol)) + (1 if color_label else 0)
         fig.subplots_adjust(bottom=min(0.4, 0.12 + 0.06 * n_rows))
     elif marker_values is not None:
         # Continuous color (colorbar) + categorical marker (legend).

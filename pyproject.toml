@@ -27,13 +27,13 @@ dependencies = [
     "ase",
     "dscribe",
     "scikit-learn",
+    "scipy",
     "tqdm",
     "kmedoids",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
     "ruff",
 ]
 docs = [

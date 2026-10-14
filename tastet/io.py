@@ -1,22 +1,29 @@
-"""Disk I/O helpers for SOAP features and kernel matrices.
+"""Disk I/O helpers: ASE databases, SOAP features, and kernel matrices.
 
-All files use ``np.savez_compressed`` (``.npz``) for significant size
+Array files use ``np.savez_compressed`` (``.npz``) for significant size
 reduction compared to raw ``.npy`` dumps.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
+from ase import Atoms
 from ase.db import connect
 
 
-def build_database(db_path, csv_path, atoms_list, metadata_records):
+def build_database(
+    db_path: Path,
+    csv_path: Path,
+    atoms_list: Sequence[Atoms],
+    metadata_records: Sequence[dict],
+) -> None:
     """Write structures + per-structure metadata to an ASE database and CSV.
 
-    :param db_path: Path to the .db file (created fresh).
+    :param db_path: Path to the .db file.
     :param csv_path: Path to the CSV mirror.
     :param atoms_list: List of Atoms objects.
     :param metadata_records: List of dicts, one per structure.
@@ -31,7 +38,7 @@ def build_database(db_path, csv_path, atoms_list, metadata_records):
     print(f"  CSV      -> {csv_path}")
 
 
-def load_atoms_and_meta(db_path):
+def load_atoms_and_meta(db_path: Path | str) -> tuple[list[Atoms], pd.DataFrame]:
     """Read all structures + metadata from an ASE database.
 
     :param db_path: Path to the .db file.
@@ -65,13 +72,9 @@ def subsample_from_db(
     without subsampling.
 
     :param db_path: Path to the ``.db`` file.
-    :type db_path: path
     :param n: Desired number of structures.
-    :type n: int
     :param seed: Random state for reproducibility.
-    :type seed: int:
     :returns: Subsampled structures and their metadata, row-aligned.
-    :rtype: tuple[list, list]
     """
     atoms_list, meta = load_atoms_and_meta(db_path)
     total = len(atoms_list)
@@ -89,7 +92,11 @@ def subsample_from_db(
     return atoms_sub, meta_sub
 
 
-def ensure_database(db_path, build_fn, update_fn=None):
+def ensure_database(
+    db_path: Path,
+    build_fn: Callable[[], None],
+    update_fn: Callable[[], None] | None = None,
+) -> None:
     """Build the database if missing, optionally update if it exists.
 
     :param db_path: Path to the .db file.

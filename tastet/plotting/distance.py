@@ -7,8 +7,8 @@ rather than verbose key=value strings. The formatting helpers live in
 
 * :func:`plot_distance_histogram`     — single histogram (kernel step).
 * :func:`plot_distance_histogram_kde` — same plus a Gaussian-KDE overlay
-  and the diagnostic stats (n_peaks, IQR/√2) used by
-  ``analyze_distances.py``.
+  and the diagnostic stats (n_peaks, IQR/√2) used to rank grid-search
+  distributions.
 * :func:`plot_grid_histograms`        — multi-panel figure (grid search).
 """
 
@@ -114,14 +114,12 @@ def plot_distance_histogram_kde(
     Companion to :func:`plot_distance_histogram`. The histogram is
     rendered ``density=True`` so the KDE curve and the bars share a
     vertical axis. The KDE bandwidth is an absolute value in distance
-    units; the default of ``0.02`` matches the bandwidth used in
-    ``analyze_distances.py``.
+    units; the default is ``0.02``.
 
-    The annotation box shows the same diagnostic stats produced by
-    ``analyze_distances.py``: ``n_peaks`` (KDE peaks above 10 % of the
-    maximum density, via :func:`scipy.signal.find_peaks`) and
-    ``IQR/√2`` (inter-quartile range normalized by the theoretical
-    maximum distance).
+    The annotation box shows two diagnostic stats: ``n_peaks`` (KDE
+    peaks above 10 % of the maximum density, via
+    :func:`scipy.signal.find_peaks`) and ``IQR/√2`` (inter-quartile
+    range normalized by the theoretical maximum distance).
 
     :param K: Normalized kernel matrix, shape *(N, N)*.
     :param bins: Number of histogram bins.
@@ -160,7 +158,7 @@ def plot_distance_histogram_kde(
     ax.plot(x_grid, density, color=palette["dark orange"], linewidth=1.6)
     ax.fill_between(x_grid, density, color=palette["dark orange"], alpha=0.15)
 
-    # ── Diagnostic stats (same convention as analyze_distances.py) ──
+    # ── Diagnostic stats ──────────────────────────────────────────
     n_pairs = len(d)
     peaks, _ = find_peaks(density, prominence=0.1 * density.max())
     n_peaks = int(len(peaks))

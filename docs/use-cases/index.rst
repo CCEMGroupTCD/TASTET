@@ -8,8 +8,9 @@ TASTET ships with two complete, self-contained example pipelines under
 structure:
 
 - ``db`` — build the master ASE database from the raw input data.
-- ``grid_search`` — sweep SOAP/kernel hyperparameters and rank them by their
-  kernel-induced distance distributions.
+- ``grid_search`` — sweep SOAP/kernel hyperparameters; diagnosed by their
+  kernel-induced distance distributions and, when a target property is
+  available, scored by CKA.
 - ``soap`` — compute SOAP descriptors for every structure.
 - ``kernel`` — build the global similarity kernel from those descriptors.
 - ``kpca`` — project the kernel into 2-D with kernel PCA for visualization.

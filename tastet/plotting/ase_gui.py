@@ -1,3 +1,7 @@
+"""ASE GUI viewer with per-atom colors."""
+
+from __future__ import annotations
+
 import numpy as np
 from ase import Atoms
 from ase.gui.gui import GUI
@@ -12,13 +16,13 @@ def view_with_colors(atoms: Atoms, colors: np.ndarray) -> None:
     for visualizing SOAP descriptors, coordination environments, or any
     other per-atom scalar/vector mapped to color.
 
-    :param atoms: ASE Atoms object
+    :param atoms: ASE Atoms object.
     :param colors: Array of shape (n_atoms, 3) with RGB values in [0, 1].
                    Must have the same length as atoms.
     """
     colors = np.asarray(colors, dtype=float)
     hex_colors = [
-        '#{:02X}{:02X}{:02X}'.format(int(r * 255), int(g * 255), int(b * 255))
+        "#{:02X}{:02X}{:02X}".format(int(r * 255), int(g * 255), int(b * 255))
         for r, g, b in colors
     ]
 

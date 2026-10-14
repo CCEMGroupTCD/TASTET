@@ -1,5 +1,10 @@
 """Sphinx configuration for TASTET documentation."""
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(".."))  # so autodoc can import tastet
+
 project = "TASTET"
 copyright = "2026, Alejandro Cañete-Arché and the CCEM Group"
 author = "Alejandro Cañete-Arché"
@@ -34,8 +39,3 @@ html_theme_options = {
     "navigation_depth": 3,
     "collapse_navigation": False,
 }
-
-# ── Paths ─────────────────────────────────────────────────────────────
-import os, sys
-
-sys.path.insert(0, os.path.abspath(".."))  # so autodoc can import tastet

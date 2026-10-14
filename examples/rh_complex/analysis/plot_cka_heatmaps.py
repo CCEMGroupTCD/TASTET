@@ -1,4 +1,4 @@
-"""Distil the round-2 CKA grid search into a four-panel publication figure.
+"""Distill the round-2 CKA grid search into a four-panel publication figure.
 
 The pipeline heatmap written by the round-2 grid search
 (``output/round2/grid_search/<hash>/heatmaps.png``) has one panel per
@@ -8,9 +8,10 @@ four panels, chosen for spread rather than at random:
 
 * the panel holding the single **highest**-CKA cell;
 * the panel holding the single **lowest**-CKA cell;
-* two intermediate panels whose *mean* CKA is closest to evenly spaced
-  targets across the range of panel means, so the four panels differ in
-  overall color instead of clustering at one end of the scale.
+* two further panels chosen by greedy maximin dispersion of the panel
+  means (each new panel is the one farthest from every panel already
+  chosen), so the four panels differ in overall color instead of
+  clustering at one end of the scale.
 
 Axes (core vs. periphery :math:`r_{\\mathrm{cut}}`) and the shared color
 scale are taken from the full grid via

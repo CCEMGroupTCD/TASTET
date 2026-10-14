@@ -30,6 +30,15 @@ from tastet.plotting.heatmap import plot_grid_heatmaps
 from tastet.sweep.results import save_results
 
 
+def _default_channel_soap(channel: dict) -> dict:
+    """Return a copy of ``channel["soap"]``; the default SOAP resolver.
+
+    :param channel: One entry from ``KERNEL_CHANNELS``.
+    :returns: Keyword dict for :func:`tastet.soap_utils.compute_soap`.
+    """
+    return dict(channel["soap"])
+
+
 def grid_search_multichannel_step(
     cfg,
     atoms_list: list,
@@ -71,7 +80,7 @@ def grid_search_multichannel_step(
     :returns: ``None``.
     """
     if resolve_channel_soap is None:
-        resolve_channel_soap = lambda ch: dict(ch["soap"])
+        resolve_channel_soap = _default_channel_soap
 
     supervised = scorer is not None and target is not None
     out_dir = cfg.grid_search_dir()
@@ -175,7 +184,7 @@ def grid_search_multichannel_step(
         # ── Pairwise distances frame ────────────────────────────────
         df_pairs = pairwise_dataframe(K, ids)
         for col, val in params.items():
-            df_pairs[col] = _scalarise(val)
+            df_pairs[col] = _scalarize(val)
         pair_frames.append(df_pairs)
 
     # ── Score results + heatmaps (supervised) ───────────────────────
@@ -203,7 +212,7 @@ def grid_search_multichannel_step(
     summary_rows: list[dict] = []
     for entry in kernel_entries:
         d = pairwise_distances(entry["K"])
-        row = {k: _scalarise(v) for k, v in entry["params"].items()}
+        row = {k: _scalarize(v) for k, v in entry["params"].items()}
         row["n_pairs"] = len(d)
         if len(d) > 0:
             row["mean"] = float(np.mean(d))
@@ -257,7 +266,7 @@ def grid_search_multichannel_step(
     print(f"  Config       -> {config_path}")
 
 
-def _scalarise(val):
+def _scalarize(val):
     """Collapse a swept value to something CSV/JSON-friendly."""
     if isinstance(val, np.generic):
         return val.item()
@@ -267,5 +276,5 @@ def _scalarise(val):
 
 
 def _jsonable(row: dict) -> dict:
-    """Scalarise every value in a results row."""
-    return {k: _scalarise(v) for k, v in row.items()}
+    """Scalarize every value in a results row."""
+    return {k: _scalarize(v) for k, v in row.items()}

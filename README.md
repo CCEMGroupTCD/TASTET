@@ -27,9 +27,10 @@ is hosted at [tastet.readthedocs.io](https://tastet.readthedocs.io).
 ## Installation
 
 ```bash
-pip install -e .                # library only
-pip install -e ".[examples]"    # also run the bundled examples (installs RDKit)
-pip install -e ".[docs]"        # also build the Sphinx docs
+pip install tastet               # from PyPI
+pip install -e .                 # library only, from a clone
+pip install -e ".[examples]"     # also run the bundled examples (installs RDKit)
+pip install -e ".[docs]"         # also build the Sphinx docs
 ```
 
 ## Quickstart
@@ -75,7 +76,7 @@ tastet/
 ├── io.py            # database, SOAP, and kernel save/load helpers
 ├── distance.py      # kernel-induced distance distributions
 ├── selection.py     # diverse structure selection (FPS / k-medoids)
-├── pipeline.py      # shared db/soap/kernel/kpca/grid_search/select steps
+├── pipeline.py      # shared soap/kernel/kpca/grid_search/select steps
 ├── cka.py           # centered kernel alignment scoring
 ├── metrics/         # scorer protocol + CKA scorer
 ├── sweep/           # SOAP × kernel grid search (single- and multi-channel)
@@ -89,5 +90,5 @@ ChemRxiv: [doi:10.26434/chemrxiv.15008498/v1](https://doi.org/10.26434/chemrxiv.
 
 ## License
 
-TASTET is released under the MIT License — see [`LICENSE`](LICENSE).
+TASTET is released under the MIT License — see [`LICENSE`](https://github.com/CCEMGroupTCD/TASTET/blob/master/LICENSE).
 © 2026 Alejandro Cañete-Arché and the CCEM Group.

@@ -1,12 +1,12 @@
 """Energy histograms of the full set vs the energy-balanced subsample.
 
 The grid search runs on an energy-balanced subset drawn by
-``prepare.subsample`` (inverse-density sampling that over-represents rare
-energy regions).  This script visualizes the effect: it loads the master
-database, reproduces the subset deterministically via
+``prepare.load_grid_search_structures`` (inverse-density sampling that
+over-represents rare energy regions).  This script visualizes the effect:
+it loads the master database, reproduces the subset deterministically via
 ``prepare._subsample_indices_energy`` (same ``SEED`` / ``NUM_BINS`` /
-``GRID_SEARCH_N_SAMPLES`` as the pipeline), and plots ``E - E_gm`` histograms for
-the full set and the subset on shared bin edges.
+``GRID_SEARCH_N_SAMPLES`` as the pipeline), and plots ``E - E_gm``
+histograms for the full set and the subset on shared bin edges.
 
 Run with::
 

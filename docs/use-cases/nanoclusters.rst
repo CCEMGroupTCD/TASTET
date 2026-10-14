@@ -6,7 +6,7 @@ This use case analyzes :math:`\mathrm{Cu}_{12}` nanoclusters adsorbed on a
 subset for DFT relaxation.  It runs in **single-kernel mode** — one
 SOAP/kernel channel, rather than the tensor product used by the Rh catalyst
 example.  It corresponds to the second case study in the accompanying
-research article (DOI: ...).
+`preprint <https://doi.org/10.26434/chemrxiv.15008498/v1>`_.
 
 This page shows how a complete pipeline is assembled from ``tastet``
 modules.  The example is fully reproducible from the committed data, so it
@@ -52,7 +52,7 @@ to touch are:
   (``SELECTION_ENERGY_MAX``, relative to the lowest surrogate-predicted
   energy), how many
   representatives to pick (``SELECTION_K``), and with which algorithm
-  (``SELECTION_METHOD``): Furthest Point Sampling (FPS) or k-medoids.
+  (``SELECTION_METHOD``): Farthest Point Sampling (FPS) or k-medoids.
 - **Use-case-specific** — settings unique to this system: the grid-search
   subsampling (``GRID_SEARCH_N_SAMPLES``, ``NUM_BINS``) and the input
   trajectory path (``ALL_RUNS_TRAJ``).
@@ -111,6 +111,7 @@ Single-kernel mode places the production kernel under
    ├── structures.db
    ├── grid_search/<hash>/
    │   ├── results.csv
+   │   ├── heatmaps.png
    │   ├── distance_distributions.png
    │   └── distance_summary.csv
    └── <soap_tag>/                        # e.g. rcut4.0_sig0.1_n8_l4_c-Cu
@@ -143,8 +144,9 @@ Each ``select`` step records its picks in several complementary forms:
   ``SELECTION_XYZ_TEMPLATE`` (e.g. ``structure_5.xyz``).  This is the
   pipeline's default export format, identical across every use case.
 - ``poscars/`` holds the same picks as VASP ``POSCAR`` files
-  (``POSCAR_<id>``), ready for a periodic DFT relaxation.  These are an
-  add-on specific to this example (see the note below).
+  (``POSCAR_<id>``, zero-padded to five digits, e.g. ``POSCAR_00055``),
+  ready for a periodic DFT relaxation.  These are an add-on specific to
+  this example (see the note below).
 
 .. note::
 

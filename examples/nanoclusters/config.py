@@ -160,7 +160,7 @@ KERNEL_CHANNELS: list[dict] = [
     #     "name": "Cu_surface",
     #     "centers_from_smarts": False,
     #     "soap": dict(
-    #         center_atoms=["Cu"], species=["Cu", "O", "Ce"],
+    #         center_atoms=["Cu"], species=["Cu", "O", "Zn"],
     #         r_cut=5.0, sigma=0.3, n_max=6, l_max=4,
     #         average="off", normalize=False, n_jobs=-1, periodic=True,
     #     ),
@@ -176,9 +176,8 @@ KERNEL_WEIGHTS: list[float] | None = None
 # ── Structure selection ──────────────────────────────────────────────
 # Before FPS, keep only structures within this energy of the global
 # minimum, i.e. E - E_gm ≤ SELECTION_ENERGY_MAX (E_gm = lowest surrogate
-# energy over the whole set).  4.51 eV reproduces the same pool the study
-# used (the old 15.0 eV absolute-energy cutoff; E_gm ≈ 10.49 eV, so
-# 15.0 - E_gm ≈ 4.51).
+# energy over the whole set).  4.51 eV is the pool used in the study: an
+# absolute cutoff of 15.0 eV with E_gm ≈ 10.49 eV.
 SELECTION_ENERGY_MAX: float = 4.51
 SELECTION_K: int = 30
 SELECTION_METHOD: str = "fps"

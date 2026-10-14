@@ -53,8 +53,8 @@ def run_sweep(
         Ignored by scorers that do not need it.
     :param soap_grid: Mapping of SOAP keyword argument names to lists of values to
         sweep. Example: ``{"r_cut": [3.0, 5.0], "sigma": [0.1, 0.5]}``.
-    :param kernel_grid: Mapping of :func:`~tastet.kernel.compute_kernel` keyword
-        argument names to lists of values to sweep. Example:
+    :param kernel_grid: List of :func:`~tastet.kernel.compute_kernel` keyword
+        dicts, one per kernel configuration to sweep. Example:
         ``[{"method": "rematch", "alpha": 0.1}, {"method": "rematch", "alpha": 0.5}]``.
     :param scorer: Callable with signature ``(K, target) -> float | None``.
     :param fixed_soap_kw: SOAP keyword arguments kept constant across the sweep,

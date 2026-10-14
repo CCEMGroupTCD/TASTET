@@ -1,6 +1,6 @@
 """Structure selection via diverse sampling in kernel space.
 
-Supports k-medoids (cluster-based) and furthest point sampling
+Supports k-medoids (cluster-based) and farthest point sampling
 (greedy maximal diversity).  Handles optional energy filtering.
 """
 
@@ -430,7 +430,7 @@ def plot_selection_3d(
     if "kpc3" not in proj_df.columns:
         raise KeyError(
             "plot_selection_3d needs a 'kpc3' column in proj_df. "
-            "Rerun the kpca step (it now writes kpc1/kpc2/kpc3)."
+            "Rerun the kpca step with three components."
         )
     if len(explained_variance_pct) < 3:
         raise IndexError("explained_variance_pct must have at least 3 entries.")

@@ -74,12 +74,7 @@ def compute_soap(
         sparse=False,
     )
 
-    resolved_species = (
-        species if species is not None
-        else sorted({s for atoms in atoms_list for s in atoms.get_chemical_symbols()})
-    )
-
-    species_set = set(resolved_species)
+    species_set = set(species)
     all_system_species: set[str] = set()
     for atoms in atoms_list:
         all_system_species.update(atoms.get_chemical_symbols())

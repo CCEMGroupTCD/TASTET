@@ -257,7 +257,7 @@ def select_spread_panels(
 ) -> list[tuple]:
     """Choose ``group_by`` keys whose panels span the range of *value*.
 
-    Distils a many-panel sweep to a representative few for a figure. The
+    Distills a many-panel sweep to a representative few for a figure. The
     selection always includes the panel holding the single
     highest-*value* cell and the panel holding the single lowest, then
     fills the remaining slots by **greedy maximin dispersion** of the

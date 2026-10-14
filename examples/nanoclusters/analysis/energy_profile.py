@@ -67,7 +67,9 @@ SURROGATE_PARITY_LABEL: str = r"Surrogate, $E - E_{\mathrm{gm}}$ (eV)"
 # ── Energy loading ────────────────────────────────────────────────────
 
 
-def load_energies(csv_path: Path, selection_csv: Path) -> tuple[np.ndarray, np.ndarray]:
+def load_energies(
+    csv_path: Path, selection_csv: Path
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Load DFT and surrogate energies, joined on ``configuration_id``.
 
     Both arrays are returned in FPS selection order (the row order of
@@ -596,7 +598,7 @@ def main() -> None:
         show=show,
     )
 
-    # ── Plot 4: Parity (surrogate vs DFT, common DFT-gm reference) ──
+    # ── Plot 4: Parity (surrogate vs DFT, each axis to its own minimum) ──
     plot_parity(
         dft_raw,
         surrogate_raw,

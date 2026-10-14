@@ -105,9 +105,7 @@ def kernel_step(cfg, ids: np.ndarray | list) -> None:
 def _maybe_distance_outputs(cfg, ids: np.ndarray | list) -> None:
     """Generate distance outputs if any of them are missing.
 
-    Re-loads the kernel only when needed (i.e. when the user has run
-    ``kernel`` once already but new outputs have since been added to
-    the pipeline).
+    Re-loads the kernel only when at least one output is absent.
 
     :param cfg: Config module.
     :param ids: Structure identifiers (one per kernel row).
@@ -129,9 +127,8 @@ def _save_distance_outputs(
 ) -> None:
     """Save distance histogram, KDE overlay, and pairwise CSV.
 
-    Existing files are not overwritten — useful when the user reruns
-    ``kernel`` to pick up newly-added outputs without recomputing
-    everything.
+    Existing files are not overwritten, so deleting one output and
+    rerunning ``kernel`` regenerates only that file.
 
     :param cfg: Config module.
     :param K: Normalized kernel matrix.
@@ -453,16 +450,15 @@ def select_step(
     """Select representative structures via diverse sampling.
 
     Writes ``selected_structures.csv`` with the metadata of the chosen
-    rows (``configuration_id`` is the only id column — there is no
-    redundant ``original_id`` or ``array_index``), and one ``.xyz``
-    file per selected structure under ``selection_dir/xyz/``. The
-    filename template is ``cfg.SELECTION_XYZ_TEMPLATE`` if defined,
-    otherwise ``"configuration_{id}.xyz"``.
+    rows (``configuration_id`` is the only id column; the kernel-row
+    position is ``configuration_id - 1``), and one ``.xyz`` file per
+    selected structure under ``selection_dir/xyz/``. The filename
+    template is ``cfg.SELECTION_XYZ_TEMPLATE`` if defined, otherwise
+    ``"configuration_{id}.xyz"``.
 
-    Renders both a 2-D and a 3-D selection plot. The 3-D plot reads
-    the ``kpc3`` column from the projections CSV; if that column is
-    missing the projections CSV predates the 3-component change and
-    you'll get a clear error pointing you to rerun the kpca step.
+    Renders both a 2-D and a 3-D selection plot. The 3-D plot needs the
+    ``kpc3`` column of the projections CSV; if it is missing, the step
+    exits and asks for a rerun of ``kpca``.
 
     :param cfg: Config module (needs ``db_path``, ``kpca_csv_path``,
         ``kpca_meta_path``, ``kernel_path``, ``selection_csv_path``,
@@ -564,8 +560,7 @@ def select_step(
     if "kpc3" not in proj_df.columns:
         sys.exit(
             f"'kpc3' column missing from {cfg.kpca_csv_path()}. "
-            f"This projections CSV was written before kpca_step gained "
-            f"a third component. Delete the file and rerun 'kpca'."
+            "Delete the file and rerun 'kpca' to write three components."
         )
     plot_3d = plot_2d.with_name(f"{plot_2d.stem}_3d{plot_2d.suffix}")
     plot_selection_3d(

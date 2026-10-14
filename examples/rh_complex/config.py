@@ -101,7 +101,7 @@ KERNEL_GRID = [
     dict(method="average", metric="rbf", gamma="median"),
 ]
 
-# CKA target-kernel type for round2.py's supervised grid search.
+# CKA target-kernel type for the supervised grid search (round2/reoptimize.py).
 CKA_TARGET_KERNEL: str = "linear"  # "linear" or "rbf"
 
 # ── Grid-search analysis (analysis/analyze_gridsearch.py) ────────────
@@ -190,7 +190,7 @@ KERNEL_KDE_BANDWIDTH: float = 0.01
 # =====================================================================
 # Round 1 (run.py) selects SELECTION_K conformers with the unsupervised
 # KERNEL_CHANNELS above; their DFT energies (ENERGIES_CSV) then supervise
-# a second grid search scored by CKA (reoptimise.py), which lands on a
+# a second grid search scored by CKA (reoptimize.py), which lands on a
 # *different* representation (ROUND2_KERNEL_CHANNELS). To keep both rounds
 # reproducible from this one file, round 2 lives in its own output
 # namespace and uses its own channels — the round2/ scripts apply these
@@ -217,7 +217,7 @@ ZOOM_CENTER: int | None = None
 
 # Re-optimized channels chosen from the CKA grid search (linear kernels).
 # Same structure as KERNEL_CHANNELS: the chosen soap/kernel are what the
-# selection uses; soap_grid/kernel_grid define the space reoptimise sweeps.
+# selection uses; soap_grid/kernel_grid define the space reoptimize sweeps.
 ROUND2_KERNEL_CHANNELS: list[dict] = [
     {
         "name": "core_kernel",
@@ -280,7 +280,7 @@ SDF_FILE: Path = USE_CASE_DIR / "input" / "open_babel_Rh_conformers.sdf"
 # DFT energies are absolute, in the ENERGY_COL convention of the round CSVs,
 # so ΔE is recomputed here too and all three share one zero. They were run at
 # the same level of theory as rounds 1 and 2 (PBE0-D3BJ/def2-SVPP), verified
-# against the Gaussian logs deposited in files_iochembd/Rh_conformers/.
+# against the Gaussian logs in the ioChem-BD deposit.
 #
 # `file` numbering is `configuration_id` (SDF read order, == the SDF's
 # `unique_index` property), the same as the round CSVs -- confirmed by
@@ -363,10 +363,9 @@ def kernel_tag() -> str:
 def combined_kernel_tag() -> str:
     """Hash-based tag for multi-channel combined kernels.
 
-    Hashes the same parameter set as :func:`grid_search_tag` (channel
-    branch), so that different combine modes / weightings produce
-    distinct directories. The field set is kept identical across the
-    use cases for cross-use-case consistency.
+    Hashes the channel definitions together with the combine mode,
+    weights, and SMARTS settings, so that different combine modes /
+    weightings produce distinct directories.
 
     :returns: ``f"{combine}_{8-char-hash}"``.
     """

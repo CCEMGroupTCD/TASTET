@@ -5,7 +5,7 @@ This use case analyzes a library of conformers of a rhodium catalyst,
 selecting representatives for DFT.  It runs in **tensor-product
 (multi-channel) mode**, combining two SOAP/kernel channels into one
 product kernel.  It corresponds to the first case study in the
-accompanying research article (DOI: ...).
+accompanying `preprint <https://doi.org/10.26434/chemrxiv.15008498/v1>`_.
 
 This page shows how a complete pipeline is assembled from ``tastet``
 modules.  The example is fully reproducible from the committed data, so it
@@ -57,7 +57,7 @@ to touch are:
   channel also chooses its own SOAP centers (see `Choosing SOAP Centers`_).
 - **Structure selection** — how many representatives to pick
   (``SELECTION_K``) and with which algorithm (``SELECTION_METHOD``):
-  Furthest Point Sampling (FPS) or k-medoids.
+  Farthest Point Sampling (FPS) or k-medoids.
 - **Round 2** — the supervised re-optimization and re-selection settings
   (the ``ROUND2_*`` and ``ZOOM_*`` variables, the energy-CSV paths, and
   ``TOTAL_BUDGET``).  These are described under `Round 2 (supervised)`_.
@@ -160,14 +160,14 @@ then re-selects with three strategies:
 
 .. code-block:: text
 
-   python round2/reoptimise.py       # CKA-scored grid search supervised by round-1 energies
+   python round2/reoptimize.py       # CKA-scored grid search supervised by round-1 energies
    python round2/reselect.py select          # FPS, truncated from TOTAL_BUDGET
    python round2/reselect.py zoom_select      # focus a kPCA region (ZOOM_BOX)
    python round2/reselect.py nearest_select   # center on the lowest-energy round-1 conformer
 
-All three strategies yield the same number of round-2 picks, given by ``ZOOM_K``.  Round 2 uses its own output namespace
-(``ROUND2_ANALYSIS_NAME``) and re-optimized channels via the ``ROUND2_*``
-config section.
+All three strategies yield the same number of round-2 picks, given by
+``ZOOM_K``.  Round 2 uses its own output namespace (``ROUND2_ANALYSIS_NAME``)
+and re-optimized channels via the ``ROUND2_*`` config section.
 
 Output Tree
 -----------
@@ -180,9 +180,10 @@ Tensor-product mode places the production kernel under a hash-keyed
    output/production/
    ├── structures.db
    ├── grid_search/<hash>/
-   │   ├── results.csv
+   │   ├── config.json
    │   ├── distance_distributions.png
-   │   └── distance_summary.csv
+   │   ├── distance_summary.csv
+   │   └── pairwise_distances.csv
    ├── channels/<name>/<soap_tag>/<kernel_tag>/   # per-channel SOAP + kernel caches
    └── product_<hash>/
        ├── kernel.npz

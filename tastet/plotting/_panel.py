@@ -1,8 +1,7 @@
 """Shared panel-title helpers for grid-search plots.
 
-Lifted from :mod:`tastet.plotting.distance` so that
-:mod:`tastet.plotting.heatmap` and any future grid-search plot use the
-same compact LaTeX formatting:
+Used by :mod:`tastet.plotting.distance` and :mod:`tastet.plotting.heatmap`
+so every grid-search plot uses the same compact LaTeX formatting:
 
 * kernel formula expressed as a math expression
   (``$p_i \\cdot q_j$``, ``$(p_i \\cdot q_j)^d$``, ``$\\exp(-\\gamma\\,\\|p_i - q_j\\|^2)$``);

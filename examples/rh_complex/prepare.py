@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import sys
 import warnings
+from pathlib import Path
 
 import pandas as pd
 from ase import Atoms
@@ -74,7 +75,7 @@ def load_grid_search_structures() -> tuple[list[Atoms], pd.DataFrame]:
 
 
 def resolve_soap_centers(
-    center_atoms=_UNSET,
+    center_atoms: list[str] | None | object = _UNSET,
     centers: list[int] | None = None,
 ) -> list[int] | None:
     """Decide which atoms to use as SOAP centers.
@@ -196,7 +197,7 @@ def resolve_channel_soap(channel: dict) -> dict:
 
 
 def get_flexible_indices(
-    sdf_path=None,
+    sdf_path: Path | str | None = None,
     flexible_smarts: list[str] | None = None,
     include_h: bool | None = None,
 ) -> list[int]:
@@ -269,7 +270,7 @@ def _build_database() -> None:
 # ── Use-case-specific: SDF parsing ───────────────────────────────────
 
 
-def load_conformers(sdf_path=None) -> list[Atoms]:
+def load_conformers(sdf_path: Path | str | None = None) -> list[Atoms]:
     """Read all conformers from an SDF file and return ASE Atoms objects.
 
     Handles both single-record multi-conformer and multi-record

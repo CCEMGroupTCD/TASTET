@@ -1,6 +1,6 @@
 """Centered Kernel Alignment (CKA) between a kernel and a target.
 
-CKA measures the similarity between two kernels after centring, here
+CKA measures the similarity between two kernels after centering, here
 between a structure-space kernel ``K`` and a kernel built from a target
 property vector ``y`` (e.g. energies). The score lies in ``[0, 1]``;
 higher means the structure kernel's geometry aligns better with the
