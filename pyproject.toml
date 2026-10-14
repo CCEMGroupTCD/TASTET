@@ -46,6 +46,7 @@ examples = [
 
 [project.urls]
 Homepage = "https://github.com/CCEMGroupTCD/TASTET"
+Documentation = "https://tastet.readthedocs.io"
 Issues = "https://github.com/CCEMGroupTCD/TASTET/issues"
 
 [tool.setuptools.packages.find]

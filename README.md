@@ -1,5 +1,7 @@
 # TASTET — Tool for Atomistic Structure selection Through Efficient Triage
 
+[![Documentation Status](https://readthedocs.org/projects/tastet/badge/?version=latest)](https://tastet.readthedocs.io/en/latest/)
+
 TASTET is a Python toolkit for selecting representative structures from
 molecular and materials datasets. At its core it does three things:
 
@@ -16,6 +18,11 @@ tune the SOAP and kernel representation.
 TASTET is built on [ASE](https://wiki.fysik.dtu.dk/ase/) (structures and
 databases) and [DScribe](https://singroup.github.io/dscribe/) (SOAP
 descriptors).
+
+## Documentation
+
+Full documentation (getting started, API reference, and use-case walkthroughs)
+is hosted at [tastet.readthedocs.io](https://tastet.readthedocs.io).
 
 ## Installation
 
@@ -56,7 +63,7 @@ Two complete, self-contained example pipelines live under `examples/`:
 
 Each is driven by three scripts — `config.py`, `prepare.py`, and `run.py` — sharing
 the same CLI steps (`db`, `grid_search`, `soap`, `kernel`, `kpca`, `select`). See the
-[Use Cases](docs/use-cases/index.rst) docs for worked walkthroughs.
+[Use Cases](https://tastet.readthedocs.io/en/latest/use-cases/index.html) docs for worked walkthroughs.
 
 ## Package structure
 
